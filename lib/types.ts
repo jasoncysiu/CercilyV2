@@ -19,35 +19,3 @@ export interface Connection {
 export type ConnectionPosition = 'top' | 'bottom' | 'left' | 'right';
 
 export type ToolType = 'select' | 'connect' | 'text';
-
-export interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-export interface Highlight {
-  id: string;
-  messageId: string;
-  text: string;
-  color: BlockColor;
-  startOffset: number;
-  endOffset: number;
-}
-
-// New interface to store all data for a single chat
-export interface ChatData {
-  title: string;
-  preview: string;
-  messages: Message[];
-  blocks: Block[];
-  connections: Connection[];
-  highlights: Highlight[];
-}
-
-export interface ChatItem {
-  id: string;
-  title: string;
-  preview: string;
-  active?: boolean;
-}

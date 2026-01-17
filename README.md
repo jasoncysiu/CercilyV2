@@ -1,14 +1,12 @@
-# ChatGPT Canvas Brainstorm - Next.js
+# Canvas Brainstorm - Next.js
 
-A chat interface with canvas brainstorming capabilities, built with Next.js 14 and TypeScript.
+A canvas brainstorming application, built with Next.js 14 and TypeScript.
 
 ## Features
 
-- 💬 Chat interface with conversation history
 - 🎨 Interactive canvas for brainstorming
 - 📝 Create notes by clicking on the canvas
 - 🔗 Connect notes together
-- 📋 Select text from chat and add to canvas
 - 🎨 Color-coded notes (yellow, blue, pink, green, orange)
 - 🔍 Zoom in/out on canvas
 - 💾 Export canvas to JSON
@@ -46,11 +44,8 @@ chatgpt-canvas-nextjs/
 ├── components/
 │   ├── CanvasBlock.tsx     # Individual canvas block
 │   ├── CanvasPanel.tsx     # Main canvas area
-│   ├── ChatView.tsx        # Chat conversation view
-│   ├── LeftSidebar.tsx     # Chat history sidebar
 │   ├── MainToolbar.tsx     # Top toolbar
 │   ├── NewBlockInput.tsx   # Input for creating new blocks
-│   ├── SelectionPopup.tsx  # Popup for text selection
 │   ├── StatusBar.tsx       # Status bar (time, battery, etc.)
 │   └── Toast.tsx           # Toast notifications
 ├── lib/
@@ -67,7 +62,6 @@ chatgpt-canvas-nextjs/
 ### Adding Notes to Canvas
 
 1. **Click to add**: Select the "T" tool and click anywhere on the canvas to create a new note
-2. **Select from chat**: Highlight text in the chat conversation and click a color to add it to the canvas
 
 ### Connecting Notes
 

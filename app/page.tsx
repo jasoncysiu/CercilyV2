@@ -111,15 +111,18 @@ export default function Home() {
         
         setAvailableModels(generativeModelNames);
         if (generativeModelNames.length > 0) {
-          // Prioritize 'models/gemini-2.5-pro' if available, otherwise pick the first one
-          const gemini25Pro = generativeModelNames.find((name: string) => name.includes('models/gemini-2.5-pro'));
-          setActiveChatModel(gemini25Pro || generativeModelNames[0]);
+          // Prioritize 'models/gemini-2.5-pro', then 'models/gemini-3-pro-preview', otherwise pick the first one
+          const preferredModel = generativeModelNames.find((name: string) => name === 'models/gemini-2.5-pro');
+          const fallbackModel = generativeModelNames.find((name: string) => name === 'models/gemini-3-pro-preview');
+          setActiveChatModel(preferredModel || fallbackModel || generativeModelNames[0] || '');
         } else {
           showToast('No generative AI models found. Check your API key and server logs.');
+          setActiveChatModel(''); // Explicitly set to empty if no models found
         }
       } catch (err) {
         console.error('Failed to fetch models:', err);
         showToast('Failed to load models. Check API key and server logs.');
+        setActiveChatModel(''); // Ensure activeChatModel is cleared on error
       }
     };
     fetchModels();

@@ -49,9 +49,9 @@ export async function POST(req: Request) {
     
     console.log('Server: Extracted text from Gemini response using .text():', text);
 
-    if (!text) {
-      console.warn('Server: Gemini response text is empty after calling .text().');
-      return NextResponse.json({ content: 'No response from AI.' });
+    if (!text || text.trim() === '') {
+      console.warn('Server: Gemini response text is empty or whitespace-only after calling .text(). This indicates the AI model did not generate content.');
+      return NextResponse.json({ content: 'The AI model did not generate any content. Please check your API key and model configuration.' });
     }
     
     return NextResponse.json({ content: text });

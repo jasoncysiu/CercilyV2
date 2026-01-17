@@ -9,6 +9,7 @@ import CanvasPanel from '@/components/CanvasPanel';
 import SelectionPopup from '@/components/SelectionPopup';
 import Toast from '@/components/Toast';
 import RemoveHighlightPopup from '@/components/RemoveHighlightPopup';
+import SettingsPanel from '@/components/SettingsPanel'; // Import the new SettingsPanel
 import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight, ChatData } from '@/lib/types';
 
 const initialMessages: Message[] = [
@@ -65,7 +66,7 @@ export default function Home() {
       messages: [{ id: '5', role: 'user', content: 'What are some good wedding venues?' }],
       blocks: [],
       connections: [],
-highlights: [],
+      highlights: [],
     },
   });
 
@@ -84,6 +85,20 @@ highlights: [],
   const [toastVisible, setToastVisible] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   
+  // Model selection states
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [availableModels, setAvailableModels] = useState<string[]>(['gemini-2.5-pro']); // Default to gemini-2.5-pro
+  const [activeChatModel, setActiveChatModel] = useState<string>('gemini-2.5-pro'); // The model currently used for chat
+
+  // Ensure activeChatModel is always one of the available models
+  useEffect(() => {
+    if (availableModels.length > 0 && !availableModels.includes(activeChatModel)) {
+      setActiveChatModel(availableModels[0]);
+    } else if (availableModels.length === 0) {
+      setActiveChatModel(''); // No model available
+    }
+  }, [availableModels, activeChatModel]);
+
   // Selection popup state (for adding new blocks/highlights)
   const [selectionPopup, setSelectionPopup] = useState<{
     visible: boolean;
@@ -272,7 +287,7 @@ highlights: [],
 
   // Function to send a new message to the AI
   const handleSendMessage = useCallback(async (content: string) => {
-    if (!content.trim() || isSendingMessage) return;
+    if (!content.trim() || isSendingMessage || !activeChatModel) return;
 
     setIsSendingMessage(true);
     const newUserMessage: Message = {
@@ -300,7 +315,10 @@ highlights: [],
           'Content-Type': 'application/json',
         },
         // Send full history including the newly added user message for context
-        body: JSON.stringify({ messages: [...chatsData[currentChatId].messages, newUserMessage] }),
+        body: JSON.stringify({
+          messages: [...chatsData[currentChatId].messages, newUserMessage],
+          modelName: activeChatModel, // Send the active model name
+        }),
       });
 
       if (!response.ok) {
@@ -338,7 +356,7 @@ highlights: [],
     } finally {
       setIsSendingMessage(false);
     }
-  }, [currentChatId, isSendingMessage, showToast, updateCurrentChatData, chatsData]); // Added chatsData to dependencies
+  }, [currentChatId, isSendingMessage, showToast, updateCurrentChatData, chatsData, activeChatModel]);
 
   const handleNewChat = useCallback(() => {
     const newChatId = `chat-${Object.keys(chatsData).length + 1}`;
@@ -399,6 +417,10 @@ highlights: [],
         onToggleSidebar={() => setSidebarVisible(prev => !prev)}
         onNewChat={handleNewChat}
         chatTitle={currentChat.title}
+        availableModels={availableModels}
+        activeChatModel={activeChatModel}
+        onSetActiveChatModel={setActiveChatModel}
+        onOpenSettings={() => setShowSettingsPanel(true)}
       />
       <div className="main-content">
         {sidebarVisible && (
@@ -455,6 +477,12 @@ highlights: [],
         onClose={() => setRemoveHighlightPopup(prev => ({ ...prev, visible: false }))}
       />
       <Toast message={toastMessage} visible={toastVisible} />
+      <SettingsPanel
+        isOpen={showSettingsPanel}
+        onClose={() => setShowSettingsPanel(false)}
+        availableModels={availableModels}
+        onSelectAvailableModels={setAvailableModels}
+      />
     </>
   );
 }

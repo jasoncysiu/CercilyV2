@@ -12,14 +12,18 @@ export async function POST(req: Request) {
     }
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-    const { messages } = await req.json();
+    const { messages, modelName } = await req.json(); // Destructure modelName
     console.log('Server: Received messages from client:', messages);
+    console.log('Server: Using model:', modelName);
 
     if (!messages || messages.length === 0) {
       return NextResponse.json({ error: 'No messages provided.' }, { status: 400 });
     }
+    if (!modelName) {
+      return NextResponse.json({ error: 'No model name provided.' }, { status: 400 });
+    }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+    const model = genAI.getGenerativeModel({ model: modelName }); // Use the provided modelName
 
     // Extract the last user message and the preceding history
     const lastUserMessageContent = messages[messages.length - 1].content;

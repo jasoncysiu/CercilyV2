@@ -65,7 +65,7 @@ export default function Home() {
       messages: [{ id: '5', role: 'user', content: 'What are some good wedding venues?' }],
       blocks: [],
       connections: [],
-      highlights: [],
+highlights: [],
     },
   });
 
@@ -308,6 +308,7 @@ export default function Home() {
       }
 
       const data = await response.json();
+      console.log('AI Response Content:', data.content); // Log the AI response content
       const aiResponse: Message = {
         id: `msg-${++messageIdRef.current}`,
         role: 'assistant',

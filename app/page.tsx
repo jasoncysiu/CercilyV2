@@ -23,13 +23,13 @@ const initialMessages: Message[] = [
 
 <strong>1. Air-Fuel Ratio (AFR)</strong> - Stoichiometric ratio is 14.7:1. Lean burn can reach 20:1.
 
-<strong>2. Compression Ratio</strong> - Higher ratios (12:1+) increase efficiency but need premium fuel.
+<strong>3. Compression Ratio</strong> - Higher ratios (12:1+) increase efficiency but need premium fuel.
 
-<strong>3. Ignition Timing</strong> - Optimal spark advance varies with RPM and load.
+<strong>4. Ignition Timing</strong> - Optimal spark advance varies with RPM and load.
 
-<strong>4. Variable Valve Timing (VVT)</strong> - Optimizes across RPM range.
+<strong>5. Variable Valve Timing (VVT)</strong> - Optimizes across RPM range.
 
-<strong>5. Friction Reduction</strong> - Can reduce losses by 5-10%.`,
+<strong>6. Friction Reduction</strong> - Can reduce losses by 5-10%.`,
   },
   {
     id: '3',
@@ -103,7 +103,7 @@ export default function Home() {
 
   const deleteBlock = useCallback((id: string) => {
     setConnections(prev => prev.filter(c => c.from !== id && c.to !== id));
-    setBlocks(prev => prev.filter(b => b.id !== id));
+    setBlocks(prev => prev.filter(b => b.id === id));
   }, []);
 
   const addConnection = useCallback((
@@ -151,7 +151,7 @@ export default function Home() {
     if (selectionPopup.text) {
       addBlock(selectionPopup.text, color);
       setSelectionPopup(prev => ({ ...prev, visible: false }));
-      window.getSelection()?.removeAllRanges();
+      // Removed: window.getSelection()?.removeAllRanges();
     }
   }, [selectionPopup.text, addBlock]);
 
@@ -159,6 +159,7 @@ export default function Home() {
     navigator.clipboard.writeText(selectionPopup.text);
     showToast('Copied!');
     setSelectionPopup(prev => ({ ...prev, visible: false }));
+    window.getSelection()?.removeAllRanges(); // Keep this to clear selection after copying
   }, [selectionPopup.text, showToast]);
 
   const exportJson = useCallback(() => {
@@ -177,6 +178,8 @@ export default function Home() {
       const popup = document.getElementById('selection-popup');
       if (popup && !popup.contains(e.target as Node)) {
         setSelectionPopup(prev => ({ ...prev, visible: false }));
+        // Optionally clear selection here if clicking outside the popup AND the selected text
+        // window.getSelection()?.removeAllRanges(); 
       }
     };
     document.addEventListener('mousedown', handleMouseDown);

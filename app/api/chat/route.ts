@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const chat = model.startChat({
       history: history,
       generationConfig: {
-        maxOutputTokens: 500, // Re-adding a reasonable token limit
+        maxOutputTokens: 8192, // Increased maxOutputTokens as per your suggestion
       },
     });
 

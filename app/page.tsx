@@ -9,7 +9,7 @@ import CanvasPanel from '@/components/CanvasPanel';
 import SelectionPopup from '@/components/SelectionPopup';
 import Toast from '@/components/Toast';
 import RemoveHighlightPopup from '@/components/RemoveHighlightPopup';
-import SettingsPanel from '@/components/SettingsPanel'; // Import the new SettingsPanel
+import SettingsPanel from '@/components/SettingsPanel';
 import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight, ChatData } from '@/lib/types';
 
 const initialMessages: Message[] = [
@@ -87,8 +87,35 @@ export default function Home() {
   
   // Model selection states
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
-  const [availableModels, setAvailableModels] = useState<string[]>(['gemini-pro']); // Default to gemini-pro
-  const [activeChatModel, setActiveChatModel] = useState<string>('gemini-pro'); // The model currently used for chat
+  const [availableModels, setAvailableModels] = useState<string[]>([]); // Initialize as empty
+  const [activeChatModel, setActiveChatModel] = useState<string>(''); // Initialize as empty
+
+  // Fetch available models on component mount
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch('/api/models');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        const generativeModelNames = data
+          .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+          .map((m: any) => m.name);
+        
+        setAvailableModels(generativeModelNames);
+        if (generativeModelNames.length > 0) {
+          setActiveChatModel(generativeModelNames[0]); // Set first available as active
+        } else {
+          showToast('No generative AI models found. Check your API key and server logs.');
+        }
+      } catch (err) {
+        console.error('Failed to fetch models:', err);
+        showToast('Failed to load models. Check API key and server logs.');
+      }
+    };
+    fetchModels();
+  }, [showToast]); // Depend on showToast to avoid lint warning
 
   // Ensure activeChatModel is always one of the available models
   useEffect(() => {
@@ -287,7 +314,12 @@ export default function Home() {
 
   // Function to send a new message to the AI
   const handleSendMessage = useCallback(async (content: string) => {
-    if (!content.trim() || isSendingMessage || !activeChatModel) return;
+    if (!content.trim() || isSendingMessage || !activeChatModel) {
+      if (!activeChatModel) {
+        showToast('No active AI model selected. Please check settings.');
+      }
+      return;
+    }
 
     setIsSendingMessage(true);
     const newUserMessage: Message = {

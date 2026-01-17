@@ -3,7 +3,7 @@
 interface MainToolbarProps {
   onToggleSidebar: () => void;
   onNewChat: () => void;
-  chatTitle: string; // New prop for the current chat's title
+  chatTitle: string; // Prop for the current chat's title
 }
 
 export default function MainToolbar({ onToggleSidebar, onNewChat, chatTitle }: MainToolbarProps) {

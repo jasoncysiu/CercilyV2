@@ -43,30 +43,17 @@ export async function POST(req: Request) {
     console.log('Server: Raw result from Gemini:', JSON.stringify(result, null, 2));
 
     const geminiResponse = result.response; // This is the object containing candidates
+
+    // Use the .text() method provided by the SDK to get the aggregated text
+    const text = geminiResponse.text(); 
     
-    // Check if response is valid and has candidates
-    if (!geminiResponse || !geminiResponse.candidates || geminiResponse.candidates.length === 0) {
-      console.error('Server: Gemini response object is invalid or missing candidates.');
-      return NextResponse.json({ error: 'Invalid response from AI model: No candidates.' }, { status: 500 });
-    }
-
-    const firstCandidate = geminiResponse.candidates[0];
-
-    // Check if the candidate has content and parts
-    if (!firstCandidate.content || !firstCandidate.content.parts || firstCandidate.content.parts.length === 0) {
-      console.warn('Server: Gemini candidate content is empty or missing parts.');
-      return NextResponse.json({ content: 'No response from AI.' });
-    }
-
-    const text = firstCandidate.content.parts[0].text;
+    console.log('Server: Extracted text from Gemini response using .text():', text);
 
     if (!text) {
-      console.warn('Server: Extracted text from Gemini response is empty.');
+      console.warn('Server: Gemini response text is empty after calling .text().');
       return NextResponse.json({ content: 'No response from AI.' });
     }
     
-    console.log('Server: Extracted text from Gemini response:', text);
-
     return NextResponse.json({ content: text });
   } catch (error) {
     console.error('Server: Error calling Gemini API:', error);

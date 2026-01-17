@@ -14,17 +14,17 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
+    console.log('Server: Received messages from client:', messages);
 
     // Initialize the model
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' }); // Changed model name here
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
 
     // Format messages for Gemini API
-    // Gemini expects alternating user/model roles.
-    // The first message must be from 'user'.
     const history = messages.map((msg: Message) => ({
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }],
     }));
+    console.log('Server: Formatted history for Gemini:', history.slice(0, -1));
 
     // Start a chat session with the history
     const chat = model.startChat({
@@ -36,13 +36,20 @@ export async function POST(req: Request) {
 
     // Send the latest user message
     const lastUserMessage = messages[messages.length - 1].content;
+    console.log('Server: Sending last user message to Gemini:', lastUserMessage);
+    
     const result = await chat.sendMessage(lastUserMessage);
+    console.log('Server: Raw result from Gemini:', JSON.stringify(result, null, 2)); // Log raw result
+
     const response = await result.response;
+    console.log('Server: Raw response object from Gemini:', JSON.stringify(response, null, 2)); // Log raw response object
+
     const text = response.text();
+    console.log('Server: Extracted text from Gemini response:', text);
 
     return NextResponse.json({ content: text });
   } catch (error) {
-    console.error('Error calling Gemini API:', error);
+    console.error('Server: Error calling Gemini API:', error);
     return NextResponse.json({ error: 'Failed to get response from AI.' }, { status: 500 });
   }
 }

@@ -105,7 +105,9 @@ export default function Home() {
         
         setAvailableModels(generativeModelNames);
         if (generativeModelNames.length > 0) {
-          setActiveChatModel(generativeModelNames[0]); // Set first available as active
+          // Prioritize 'gemini-1.5-pro' if available, otherwise pick the first one
+          const gemini15Pro = generativeModelNames.find((name: string) => name.includes('gemini-1.5-pro'));
+          setActiveChatModel(gemini15Pro || generativeModelNames[0]);
         } else {
           showToast('No generative AI models found. Check your API key and server logs.');
         }
@@ -115,7 +117,7 @@ export default function Home() {
       }
     };
     fetchModels();
-  }, [showToast]); // Depend on showToast to avoid lint warning
+  }, [showToast]);
 
   // Ensure activeChatModel is always one of the available models
   useEffect(() => {

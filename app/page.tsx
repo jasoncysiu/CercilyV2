@@ -87,8 +87,8 @@ export default function Home() {
   
   // Model selection states
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
-  const [availableModels, setAvailableModels] = useState<string[]>(['gemini-2.5-pro']); // Default to gemini-2.5-pro
-  const [activeChatModel, setActiveChatModel] = useState<string>('gemini-2.5-pro'); // The model currently used for chat
+  const [availableModels, setAvailableModels] = useState<string[]>(['gemini-pro']); // Default to gemini-pro
+  const [activeChatModel, setActiveChatModel] = useState<string>('gemini-pro'); // The model currently used for chat
 
   // Ensure activeChatModel is always one of the available models
   useEffect(() => {

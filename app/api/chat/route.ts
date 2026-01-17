@@ -35,9 +35,7 @@ export async function POST(req: Request) {
 
     const chat = model.startChat({
       history: history,
-      generationConfig: {
-        maxOutputTokens: 500,
-      },
+      // Removed generationConfig to allow the model to generate without an explicit maxOutputTokens limit
     });
 
     console.log('Server: Sending last user message to Gemini:', lastUserMessageContent);

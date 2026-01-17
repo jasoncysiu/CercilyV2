@@ -32,3 +32,12 @@ export interface ChatItem {
   preview: string;
   active?: boolean;
 }
+
+export interface Highlight {
+  id: string;
+  messageId: string;
+  text: string;
+  color: BlockColor;
+  startOffset: number;
+  endOffset: number;
+}

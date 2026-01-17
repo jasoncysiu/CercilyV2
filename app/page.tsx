@@ -8,7 +8,7 @@ import ChatView from '@/components/ChatView';
 import CanvasPanel from '@/components/CanvasPanel';
 import SelectionPopup from '@/components/SelectionPopup';
 import Toast from '@/components/Toast';
-import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem } from '@/lib/types';
+import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight } from '@/lib/types';
 
 const initialMessages: Message[] = [
   {
@@ -21,15 +21,15 @@ const initialMessages: Message[] = [
     role: 'assistant',
     content: `Key parameters for fuel efficiency:
 
-<strong>1. Air-Fuel Ratio (AFR)</strong> - Stoichiometric ratio is 14.7:1. Lean burn can reach 20:1.
+1. Air-Fuel Ratio (AFR) - Stoichiometric ratio is 14.7:1. Lean burn can reach 20:1.
 
-<strong>3. Compression Ratio</strong> - Higher ratios (12:1+) increase efficiency but need premium fuel.
+2. Compression Ratio - Higher ratios (12:1+) increase efficiency but need premium fuel.
 
-<strong>4. Ignition Timing</strong> - Optimal spark advance varies with RPM and load.
+3. Ignition Timing - Optimal spark advance varies with RPM and load.
 
-<strong>5. Variable Valve Timing (VVT)</strong> - Optimizes across RPM range.
+4. Variable Valve Timing (VVT) - Optimizes across RPM range.
 
-<strong>6. Friction Reduction</strong> - Can reduce losses by 5-10%.`,
+5. Friction Reduction - Can reduce losses by 5-10%.`,
   },
   {
     id: '3',
@@ -39,11 +39,11 @@ const initialMessages: Message[] = [
   {
     id: '4',
     role: 'assistant',
-    content: `<strong>Turbocharger:</strong> Uses exhaust energy (free power), better cruise efficiency, but has turbo lag.
+    content: `Turbocharger: Uses exhaust energy (free power), better cruise efficiency, but has turbo lag.
 
-<strong>Supercharger:</strong> Instant response but parasitic belt-driven loss.
+Supercharger: Instant response but parasitic belt-driven loss.
 
-<strong>For efficiency: Turbo wins</strong> - Modern twin-scroll turbos minimize lag with 15-25% efficiency gains.`,
+For efficiency: Turbo wins - Modern twin-scroll turbos minimize lag with 15-25% efficiency gains.`,
   },
 ];
 
@@ -55,6 +55,7 @@ const initialChats: ChatItem[] = [
 export default function Home() {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [currentTool, setCurrentTool] = useState<ToolType>('text');
   const [zoom, setZoom] = useState(1);
@@ -70,9 +71,13 @@ export default function Home() {
     x: number;
     y: number;
     text: string;
-  }>({ visible: false, x: 0, y: 0, text: '' });
+    messageId: string;
+    startOffset: number;
+    endOffset: number;
+  }>({ visible: false, x: 0, y: 0, text: '', messageId: '', startOffset: 0, endOffset: 0 });
 
   const blockIdRef = useRef(0);
+  const highlightIdRef = useRef(0);
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -97,13 +102,32 @@ export default function Home() {
     showToast('Added to canvas!');
   }, [blocks.length, showToast]);
 
+  const addHighlight = useCallback((
+    messageId: string,
+    text: string,
+    color: BlockColor,
+    startOffset: number,
+    endOffset: number
+  ) => {
+    const id = `highlight-${++highlightIdRef.current}`;
+    const newHighlight: Highlight = {
+      id,
+      messageId,
+      text,
+      color,
+      startOffset,
+      endOffset,
+    };
+    setHighlights(prev => [...prev, newHighlight]);
+  }, []);
+
   const updateBlock = useCallback((id: string, updates: Partial<Block>) => {
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
   }, []);
 
   const deleteBlock = useCallback((id: string) => {
     setConnections(prev => prev.filter(c => c.from !== id && c.to !== id));
-    setBlocks(prev => prev.filter(b => b.id === id));
+    setBlocks(prev => prev.filter(b => b.id !== id));
   }, []);
 
   const addConnection = useCallback((
@@ -133,44 +157,65 @@ export default function Home() {
     if (confirm('Clear canvas?')) {
       setBlocks([]);
       setConnections([]);
+      setHighlights([]);
     }
   }, []);
 
-  const handleTextSelection = useCallback((text: string, rect: DOMRect) => {
+  const handleTextSelection = useCallback((
+    text: string,
+    rect: DOMRect,
+    messageId: string,
+    startOffset: number,
+    endOffset: number
+  ) => {
     if (text.length > 0 && text.length < 500) {
       setSelectionPopup({
         visible: true,
         x: Math.max(10, rect.left + rect.width / 2 - 120),
         y: rect.top - 50,
         text,
+        messageId,
+        startOffset,
+        endOffset,
       });
     }
   }, []);
 
   const handleSelectionPopupColorClick = useCallback((color: BlockColor) => {
     if (selectionPopup.text) {
+      // Add block to canvas
       addBlock(selectionPopup.text, color);
+      
+      // Add highlight to the chat message
+      if (selectionPopup.messageId) {
+        addHighlight(
+          selectionPopup.messageId,
+          selectionPopup.text,
+          color,
+          selectionPopup.startOffset,
+          selectionPopup.endOffset
+        );
+      }
+      
       setSelectionPopup(prev => ({ ...prev, visible: false }));
-      // Removed: window.getSelection()?.removeAllRanges();
     }
-  }, [selectionPopup.text, addBlock]);
+  }, [selectionPopup, addBlock, addHighlight]);
 
   const handleCopyClick = useCallback(() => {
     navigator.clipboard.writeText(selectionPopup.text);
     showToast('Copied!');
     setSelectionPopup(prev => ({ ...prev, visible: false }));
-    window.getSelection()?.removeAllRanges(); // Keep this to clear selection after copying
   }, [selectionPopup.text, showToast]);
 
   const exportJson = useCallback(() => {
-    const data = { blocks, connections };
+    const data = { blocks, connections, highlights };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'canvas.json';
     a.click();
     showToast('Saved!');
-  }, [blocks, connections, showToast]);
+  }, [blocks, connections, highlights, showToast]);
 
   // Hide selection popup on click outside
   useEffect(() => {
@@ -178,8 +223,6 @@ export default function Home() {
       const popup = document.getElementById('selection-popup');
       if (popup && !popup.contains(e.target as Node)) {
         setSelectionPopup(prev => ({ ...prev, visible: false }));
-        // Optionally clear selection here if clicking outside the popup AND the selected text
-        // window.getSelection()?.removeAllRanges(); 
       }
     };
     document.addEventListener('mousedown', handleMouseDown);
@@ -196,6 +239,7 @@ export default function Home() {
         {sidebarVisible && <LeftSidebar chats={chats} />}
         <ChatView
           messages={messages}
+          highlights={highlights}
           onTextSelection={handleTextSelection}
         />
         <CanvasPanel

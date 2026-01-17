@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 * {
   margin: 0;
   padding: 0;
@@ -807,4 +811,35 @@ body {
 
 .click-hint.hidden {
   display: none;
+}
+
+/* Text Highlights */
+mark {
+  padding: 3px 2px;
+  border-radius: 4px;
+}
+
+.highlight-yellow {
+  background: rgba(255, 214, 10, 0.4);
+  color: inherit;
+}
+
+.highlight-blue {
+  background: rgba(10, 132, 255, 0.4);
+  color: inherit;
+}
+
+.highlight-pink {
+  background: rgba(255, 55, 95, 0.4);
+  color: inherit;
+}
+
+.highlight-green {
+  background: rgba(48, 209, 88, 0.4);
+  color: inherit;
+}
+
+.highlight-orange {
+  background: rgba(255, 159, 10, 0.4);
+  color: inherit;
 }

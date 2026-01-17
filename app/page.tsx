@@ -457,7 +457,10 @@ export default function Home() {
         availableModels={availableModels}
         activeChatModel={activeChatModel}
         onSetActiveChatModel={setActiveChatModel}
-        onOpenSettings={() => setShowSettingsPanel(true)}
+        onOpenSettings={() => {
+          console.log('Settings button clicked! showSettingsPanel will be set to true.');
+          setShowSettingsPanel(true);
+        }}
       />
       <div className="main-content">
         {sidebarVisible && (

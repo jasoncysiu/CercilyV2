@@ -6,9 +6,23 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 export async function GET() {
   try {
     if (!GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY environment variable is not set.');
+      console.error('Server: GEMINI_API_KEY environment variable is not set. Please add it to your .env.local file.');
+      return NextResponse.json(
+        { error: 'GEMINI_API_KEY is not set. Please configure your environment variables.' },
+        { status: 500 }
+      );
     }
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+
+    let genAI: GoogleGenerativeAI;
+    try {
+      genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    } catch (initError) {
+      console.error('Server: Error initializing GoogleGenerativeAI for models:', initError);
+      return NextResponse.json(
+        { error: 'Failed to initialize AI client for models. Check GEMINI_API_KEY validity.', details: (initError as Error).message },
+        { status: 500 }
+      );
+    }
 
     const models = await genAI.listModels();
     const modelNames = models.map(model => ({

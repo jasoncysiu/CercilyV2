@@ -8,16 +8,25 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 export async function POST(req: Request) {
   try {
     if (!GEMINI_API_KEY) {
-      // More explicit error if API key is missing
       console.error('Server: GEMINI_API_KEY environment variable is not set. Please add it to your .env.local file.');
       return NextResponse.json(
         { error: 'GEMINI_API_KEY is not set. Please configure your environment variables.' },
         { status: 500 }
       );
     }
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-    const { messages, modelName } = await req.json(); // Destructure modelName
+    let genAI: GoogleGenerativeAI;
+    try {
+      genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    } catch (initError) {
+      console.error('Server: Error initializing GoogleGenerativeAI:', initError);
+      return NextResponse.json(
+        { error: 'Failed to initialize AI client. Check GEMINI_API_KEY validity.', details: (initError as Error).message },
+        { status: 500 }
+      );
+    }
+
+    const { messages, modelName } = await req.json();
     console.log('Server: Received messages from client:', messages);
     console.log('Server: Using model:', modelName);
 
@@ -28,12 +37,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No model name provided.' }, { status: 400 });
     }
 
-    const model = genAI.getGenerativeModel({ model: modelName }); // Use the provided modelName
+    const model = genAI.getGenerativeModel({ model: modelName });
 
-    // Extract the last user message and the preceding history
     const lastUserMessageContent = messages[messages.length - 1].content;
     const history = messages.slice(0, -1).map((msg: Message) => ({
-      role: msg.role === 'user' ? 'user' : 'model', // Gemini expects 'user' or 'model'
+      role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }],
     }));
     console.log('Server: Formatted history for Gemini:', history);
@@ -41,7 +49,7 @@ export async function POST(req: Request) {
     const chat = model.startChat({
       history: history,
       generationConfig: {
-        maxOutputTokens: 8192, // Increased maxOutputTokens as per your suggestion
+        maxOutputTokens: 8192,
       },
     });
 
@@ -50,9 +58,8 @@ export async function POST(req: Request) {
     const result = await chat.sendMessage(lastUserMessageContent);
     console.log('Server: Raw result from Gemini:', JSON.stringify(result, null, 2));
 
-    const geminiResponse = result.response; // This is the object containing candidates
+    const geminiResponse = result.response;
 
-    // Use the .text() method provided by the SDK to get the aggregated text
     const text = geminiResponse.text(); 
     
     console.log('Server: Extracted text from Gemini response using .text():', text);
@@ -65,7 +72,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ content: text });
   } catch (error) {
     console.error('Server: Error calling Gemini API:', error);
-    // Provide more details in the error response
     return NextResponse.json(
       { error: 'Failed to get response from AI.', details: (error as Error).message, stack: (error as Error).stack },
       { status: 500 }

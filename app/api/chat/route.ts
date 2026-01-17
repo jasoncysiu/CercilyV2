@@ -8,7 +8,12 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 export async function POST(req: Request) {
   try {
     if (!GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY environment variable is not set.');
+      // More explicit error if API key is missing
+      console.error('Server: GEMINI_API_KEY environment variable is not set. Please add it to your .env.local file.');
+      return NextResponse.json(
+        { error: 'GEMINI_API_KEY is not set. Please configure your environment variables.' },
+        { status: 500 }
+      );
     }
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 

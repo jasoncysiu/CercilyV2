@@ -5,14 +5,13 @@ import { Message } from '@/lib/types';
 // Ensure the API key is available
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-if (!GEMINI_API_KEY) {
-  throw new Error('GEMINI_API_KEY environment variable is not set.');
-}
-
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-
 export async function POST(req: Request) {
   try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY environment variable is not set.');
+    }
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+
     const { messages } = await req.json();
     console.log('Server: Received messages from client:', messages);
 

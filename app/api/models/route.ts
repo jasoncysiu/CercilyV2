@@ -3,14 +3,13 @@ import { NextResponse } from 'next/server';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-if (!GEMINI_API_KEY) {
-  throw new Error('GEMINI_API_KEY environment variable is not set.');
-}
-
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-
 export async function GET() {
   try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY environment variable is not set.');
+    }
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+
     const models = await genAI.listModels();
     const modelNames = models.map(model => ({
       name: model.name,

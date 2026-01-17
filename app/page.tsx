@@ -281,8 +281,14 @@ export default function Home() {
       content: content.trim(),
     };
 
-    const updatedMessages = [...messages, newUserMessage];
-    updateCurrentChatData({ messages: updatedMessages });
+    // Add user message immediately
+    setChatsData(prevChats => ({
+      ...prevChats,
+      [currentChatId]: {
+        ...prevChats[currentChatId],
+        messages: [...prevChats[currentChatId].messages, newUserMessage],
+      },
+    }));
 
     // Update chat preview
     updateCurrentChatData({ preview: content.trim().slice(0, 50) + '...' });
@@ -293,7 +299,8 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ messages: updatedMessages }), // Send full history for context
+        // Send full history including the newly added user message for context
+        body: JSON.stringify({ messages: [...chatsData[currentChatId].messages, newUserMessage] }),
       });
 
       if (!response.ok) {
@@ -306,16 +313,31 @@ export default function Home() {
         role: 'assistant',
         content: data.content,
       };
-      updateCurrentChatData({ messages: [...updatedMessages, aiResponse] });
+      
+      // Add AI message using a functional update to ensure latest messages state
+      setChatsData(prevChats => ({
+        ...prevChats,
+        [currentChatId]: {
+          ...prevChats[currentChatId],
+          messages: [...prevChats[currentChatId].messages, aiResponse],
+        },
+      }));
+
     } catch (error) {
       console.error('Error sending message to AI:', error);
       showToast('Failed to get AI response. Please try again.');
-      // Optionally remove the user message if AI failed to respond
-      updateCurrentChatData({ messages: updatedMessages.filter(msg => msg.id !== newUserMessage.id) });
+      // If AI failed to respond, remove the user message that was already added.
+      setChatsData(prevChats => ({
+        ...prevChats,
+        [currentChatId]: {
+          ...prevChats[currentChatId],
+          messages: prevChats[currentChatId].messages.filter(msg => msg.id !== newUserMessage.id),
+        },
+      }));
     } finally {
       setIsSendingMessage(false);
     }
-  }, [messages, isSendingMessage, showToast, updateCurrentChatData]);
+  }, [currentChatId, isSendingMessage, showToast, updateCurrentChatData, chatsData]); // Added chatsData to dependencies
 
   const handleNewChat = useCallback(() => {
     const newChatId = `chat-${Object.keys(chatsData).length + 1}`;

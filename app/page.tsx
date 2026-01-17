@@ -90,6 +90,12 @@ export default function Home() {
   const [availableModels, setAvailableModels] = useState<string[]>([]); // Initialize as empty
   const [activeChatModel, setActiveChatModel] = useState<string>(''); // Initialize as empty
 
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message);
+    setToastVisible(true);
+    setTimeout(() => setToastVisible(false), 2000);
+  }, []);
+
   // Fetch available models on component mount
   useEffect(() => {
     const fetchModels = async () => {
@@ -161,12 +167,6 @@ export default function Home() {
       },
     }));
   }, [currentChatId]);
-
-  const showToast = useCallback((message: string) => {
-    setToastMessage(message);
-    setToastVisible(true);
-    setTimeout(() => setToastVisible(false), 2000);
-  }, []);
 
   const addBlock = useCallback((text: string, color: BlockColor, x?: number, y?: number) => {
     const id = `block-${++blockIdRef.current}`;

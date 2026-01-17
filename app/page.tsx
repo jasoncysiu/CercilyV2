@@ -375,6 +375,7 @@ export default function Home() {
       <MainToolbar
         onToggleSidebar={() => setSidebarVisible(prev => !prev)}
         onNewChat={handleNewChat}
+        chatTitle={currentChat.title} {/* Pass current chat title */}
       />
       <div className="main-content">
         {sidebarVisible && (
@@ -385,6 +386,7 @@ export default function Home() {
           />
         )}
         <ChatView
+          key={currentChatId} {/* Add key to force re-mount on chat switch */}
           messages={messages}
           highlights={highlights}
           onTextSelection={handleTextSelection}

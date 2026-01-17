@@ -7,9 +7,10 @@ interface ChatViewProps {
   messages: Message[];
   highlights: Highlight[];
   onTextSelection: (text: string, rect: DOMRect, messageId: string, startOffset: number, endOffset: number) => void;
+  onHighlightClick: (highlightId: string, rect: DOMRect) => void; // New prop
 }
 
-export default function ChatView({ messages, highlights, onTextSelection }: ChatViewProps) {
+export default function ChatView({ messages, highlights, onTextSelection, onHighlightClick }: ChatViewProps) {
   const [inputValue, setInputValue] = useState('');
   const messagesRef = useRef<HTMLDivElement>(null);
 
@@ -75,7 +76,7 @@ export default function ChatView({ messages, highlights, onTextSelection }: Chat
 
     // Build the highlighted content
     const content = message.content;
-    const parts: { text: string; color?: BlockColor }[] = [];
+    const parts: { text: string; color?: BlockColor; highlightId?: string }[] = [];
     let lastIndex = 0;
 
     messageHighlights.forEach(highlight => {
@@ -86,7 +87,8 @@ export default function ChatView({ messages, highlights, onTextSelection }: Chat
       // Add highlighted text
       parts.push({ 
         text: content.slice(highlight.startOffset, highlight.endOffset),
-        color: highlight.color 
+        color: highlight.color,
+        highlightId: highlight.id // Add highlightId here
       });
       lastIndex = highlight.endOffset;
     });
@@ -100,12 +102,17 @@ export default function ChatView({ messages, highlights, onTextSelection }: Chat
       <div className="message-bubble selectable-text">
         {parts.map((part, index) => {
           const htmlContent = part.text.replace(/\n/g, '<br>');
-          if (part.color) {
+          if (part.color && part.highlightId) {
             return (
               <mark
                 key={index}
                 className={`highlight-${part.color}`}
                 dangerouslySetInnerHTML={{ __html: htmlContent }}
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent triggering handleCanvasClick
+                  const rect = (e.target as HTMLElement).getBoundingClientRect();
+                  onHighlightClick(part.highlightId!, rect);
+                }}
               />
             );
           }
@@ -113,7 +120,7 @@ export default function ChatView({ messages, highlights, onTextSelection }: Chat
         })}
       </div>
     );
-  }, [highlights]);
+  }, [highlights, onHighlightClick]);
 
   return (
     <div className="chat-view">

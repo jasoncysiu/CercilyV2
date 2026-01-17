@@ -8,6 +8,7 @@ import ChatView from '@/components/ChatView';
 import CanvasPanel from '@/components/CanvasPanel';
 import SelectionPopup from '@/components/SelectionPopup';
 import Toast from '@/components/Toast';
+import RemoveHighlightPopup from '@/components/RemoveHighlightPopup'; // Import the new component
 import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight } from '@/lib/types';
 
 const initialMessages: Message[] = [
@@ -65,7 +66,7 @@ export default function Home() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   
-  // Selection popup state
+  // Selection popup state (for adding new blocks/highlights)
   const [selectionPopup, setSelectionPopup] = useState<{
     visible: boolean;
     x: number;
@@ -76,13 +77,21 @@ export default function Home() {
     endOffset: number;
   }>({ visible: false, x: 0, y: 0, text: '', messageId: '', startOffset: 0, endOffset: 0 });
 
+  // Remove highlight popup state
+  const [removeHighlightPopup, setRemoveHighlightPopup] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    highlightId: string | null;
+  }>({ visible: false, x: 0, y: 0, highlightId: null });
+
   const blockIdRef = useRef(0);
   const highlightIdRef = useRef(0);
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
     setToastVisible(true);
-    setTimeout(() => setToastVisible(false), 2000);
+    setTimeout(() => setToastVisible(2000), 2000);
   }, []);
 
   const addBlock = useCallback((text: string, color: BlockColor, x?: number, y?: number) => {
@@ -120,6 +129,11 @@ export default function Home() {
     };
     setHighlights(prev => [...prev, newHighlight]);
   }, []);
+
+  const removeHighlight = useCallback((id: string) => {
+    setHighlights(prev => prev.filter(h => h.id !== id));
+    showToast('Highlight removed!');
+  }, [showToast]);
 
   const updateBlock = useCallback((id: string, updates: Partial<Block>) => {
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
@@ -178,15 +192,24 @@ export default function Home() {
         startOffset,
         endOffset,
       });
+      setRemoveHighlightPopup(prev => ({ ...prev, visible: false })); // Hide remove popup
     }
+  }, []);
+
+  const handleHighlightClick = useCallback((highlightId: string, rect: DOMRect) => {
+    setRemoveHighlightPopup({
+      visible: true,
+      x: Math.max(10, rect.left + rect.width / 2 - 20), // Position near the clicked highlight
+      y: rect.top - 40,
+      highlightId,
+    });
+    setSelectionPopup(prev => ({ ...prev, visible: false })); // Hide selection popup
   }, []);
 
   const handleSelectionPopupColorClick = useCallback((color: BlockColor) => {
     if (selectionPopup.text) {
-      // Add block to canvas
       addBlock(selectionPopup.text, color);
       
-      // Add highlight to the chat message
       if (selectionPopup.messageId) {
         addHighlight(
           selectionPopup.messageId,
@@ -217,12 +240,17 @@ export default function Home() {
     showToast('Saved!');
   }, [blocks, connections, highlights, showToast]);
 
-  // Hide selection popup on click outside
+  // Hide popups on click outside
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
-      const popup = document.getElementById('selection-popup');
-      if (popup && !popup.contains(e.target as Node)) {
+      const selectionPopupEl = document.getElementById('selection-popup');
+      const removeHighlightPopupEl = document.getElementById('remove-highlight-popup');
+
+      if (selectionPopupEl && !selectionPopupEl.contains(e.target as Node)) {
         setSelectionPopup(prev => ({ ...prev, visible: false }));
+      }
+      if (removeHighlightPopupEl && !removeHighlightPopupEl.contains(e.target as Node)) {
+        setRemoveHighlightPopup(prev => ({ ...prev, visible: false }));
       }
     };
     document.addEventListener('mousedown', handleMouseDown);
@@ -241,6 +269,7 @@ export default function Home() {
           messages={messages}
           highlights={highlights}
           onTextSelection={handleTextSelection}
+          onHighlightClick={handleHighlightClick} // Pass the new handler
         />
         <CanvasPanel
           blocks={blocks}
@@ -266,6 +295,18 @@ export default function Home() {
         y={selectionPopup.y}
         onColorClick={handleSelectionPopupColorClick}
         onCopyClick={handleCopyClick}
+      />
+      <RemoveHighlightPopup
+        visible={removeHighlightPopup.visible}
+        x={removeHighlightPopup.x}
+        y={removeHighlightPopup.y}
+        onRemove={() => {
+          if (removeHighlightPopup.highlightId) {
+            removeHighlight(removeHighlightPopup.highlightId);
+            setRemoveHighlightPopup(prev => ({ ...prev, visible: false }));
+          }
+        }}
+        onClose={() => setRemoveHighlightPopup(prev => ({ ...prev, visible: false }))}
       />
       <Toast message={toastMessage} visible={toastVisible} />
     </>

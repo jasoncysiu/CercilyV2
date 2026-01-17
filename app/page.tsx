@@ -111,9 +111,9 @@ export default function Home() {
         
         setAvailableModels(generativeModelNames);
         if (generativeModelNames.length > 0) {
-          // Prioritize 'gemini-1.5-pro' if available, otherwise pick the first one
-          const gemini15Pro = generativeModelNames.find((name: string) => name.includes('gemini-1.5-pro'));
-          setActiveChatModel(gemini15Pro || generativeModelNames[0]);
+          // Prioritize 'models/gemini-2.5-pro' if available, otherwise pick the first one
+          const gemini25Pro = generativeModelNames.find((name: string) => name.includes('models/gemini-2.5-pro'));
+          setActiveChatModel(gemini25Pro || generativeModelNames[0]);
         } else {
           showToast('No generative AI models found. Check your API key and server logs.');
         }

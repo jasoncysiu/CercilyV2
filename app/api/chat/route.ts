@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     const { messages } = await req.json();
 
     // Initialize the model
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }); // Changed model name here
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' }); // Changed model name here
 
     // Format messages for Gemini API
     // Gemini expects alternating user/model roles.

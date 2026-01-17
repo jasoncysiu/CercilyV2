@@ -8,7 +8,7 @@ import ChatView from '@/components/ChatView';
 import CanvasPanel from '@/components/CanvasPanel';
 import SelectionPopup from '@/components/SelectionPopup';
 import Toast from '@/components/Toast';
-import RemoveHighlightPopup from '@/components/RemoveHighlightPopup'; // Import the new component
+import RemoveHighlightPopup from '@/components/RemoveHighlightPopup';
 import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight } from '@/lib/types';
 
 const initialMessages: Message[] = [
@@ -60,11 +60,12 @@ export default function Home() {
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [currentTool, setCurrentTool] = useState<ToolType>('text');
   const [zoom, setZoom] = useState(1);
-  const [messages] = useState<Message[]>(initialMessages);
+  const [messages, setMessages] = useState<Message[]>(initialMessages); // Make messages stateful
   const [chats] = useState<ChatItem[]>(initialChats);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false); // New state for loading indicator
   
   // Selection popup state (for adding new blocks/highlights)
   const [selectionPopup, setSelectionPopup] = useState<{
@@ -87,11 +88,12 @@ export default function Home() {
 
   const blockIdRef = useRef(0);
   const highlightIdRef = useRef(0);
+  const messageIdRef = useRef(initialMessages.length); // To generate unique message IDs
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
     setToastVisible(true);
-    setTimeout(() => setToastVisible(2000), 2000);
+    setTimeout(() => setToastVisible(false), 2000);
   }, []);
 
   const addBlock = useCallback((text: string, color: BlockColor, x?: number, y?: number) => {
@@ -240,6 +242,49 @@ export default function Home() {
     showToast('Saved!');
   }, [blocks, connections, highlights, showToast]);
 
+  // Function to send a new message to the AI
+  const handleSendMessage = useCallback(async (content: string) => {
+    if (!content.trim() || isSendingMessage) return;
+
+    setIsSendingMessage(true);
+    const newUserMessage: Message = {
+      id: `msg-${++messageIdRef.current}`,
+      role: 'user',
+      content: content.trim(),
+    };
+
+    setMessages(prev => [...prev, newUserMessage]);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ messages: [...messages, newUserMessage] }), // Send full history for context
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const aiResponse: Message = {
+        id: `msg-${++messageIdRef.current}`,
+        role: 'assistant',
+        content: data.content,
+      };
+      setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      console.error('Error sending message to AI:', error);
+      showToast('Failed to get AI response. Please try again.');
+      // Optionally remove the user message if AI failed to respond
+      setMessages(prev => prev.filter(msg => msg.id !== newUserMessage.id));
+    } finally {
+      setIsSendingMessage(false);
+    }
+  }, [messages, isSendingMessage, showToast]);
+
   // Hide popups on click outside
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
@@ -269,7 +314,9 @@ export default function Home() {
           messages={messages}
           highlights={highlights}
           onTextSelection={handleTextSelection}
-          onHighlightClick={handleHighlightClick} // Pass the new handler
+          onHighlightClick={handleHighlightClick}
+          onSendMessage={handleSendMessage} // Pass the new send message handler
+          isSendingMessage={isSendingMessage} // Pass loading state
         />
         <CanvasPanel
           blocks={blocks}

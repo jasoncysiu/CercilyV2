@@ -9,7 +9,7 @@ import CanvasPanel from '@/components/CanvasPanel';
 import SelectionPopup from '@/components/SelectionPopup';
 import Toast from '@/components/Toast';
 import RemoveHighlightPopup from '@/components/RemoveHighlightPopup';
-import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight } from '@/lib/types';
+import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight, ChatData } from '@/lib/types';
 
 const initialMessages: Message[] = [
   {
@@ -48,24 +48,41 @@ For efficiency: Turbo wins - Modern twin-scroll turbos minimize lag with 15-25% 
   },
 ];
 
-const initialChats: ChatItem[] = [
-  { id: '1', title: 'Engine Optimization', preview: 'Fuel efficiency parameters...', active: true },
-  { id: '2', title: 'Wedding Planning', preview: 'Venue options...' },
-];
-
 export default function Home() {
-  const [blocks, setBlocks] = useState<Block[]>([]);
-  const [connections, setConnections] = useState<Connection[]>([]);
-  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [currentChatId, setCurrentChatId] = useState<string>('chat-1');
+  const [chatsData, setChatsData] = useState<Record<string, ChatData>>({
+    'chat-1': {
+      title: 'Engine Optimization',
+      preview: 'Fuel efficiency parameters...',
+      messages: initialMessages,
+      blocks: [],
+      connections: [],
+      highlights: [],
+    },
+    'chat-2': {
+      title: 'Wedding Planning',
+      preview: 'Venue options...',
+      messages: [{ id: '5', role: 'user', content: 'What are some good wedding venues?' }],
+      blocks: [],
+      connections: [],
+      highlights: [],
+    },
+  });
+
+  // Derived state for the currently active chat
+  const currentChat = chatsData[currentChatId];
+  const messages = currentChat.messages;
+  const blocks = currentChat.blocks;
+  const connections = currentChat.connections;
+  const highlights = currentChat.highlights;
+
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [currentTool, setCurrentTool] = useState<ToolType>('text');
   const [zoom, setZoom] = useState(1);
-  const [messages, setMessages] = useState<Message[]>(initialMessages); // Make messages stateful
-  const [chats] = useState<ChatItem[]>(initialChats);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
-  const [isSendingMessage, setIsSendingMessage] = useState(false); // New state for loading indicator
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   
   // Selection popup state (for adding new blocks/highlights)
   const [selectionPopup, setSelectionPopup] = useState<{
@@ -90,6 +107,17 @@ export default function Home() {
   const highlightIdRef = useRef(0);
   const messageIdRef = useRef(initialMessages.length); // To generate unique message IDs
 
+  // Helper to update the current chat's data
+  const updateCurrentChatData = useCallback((updates: Partial<ChatData>) => {
+    setChatsData(prev => ({
+      ...prev,
+      [currentChatId]: {
+        ...prev[currentChatId],
+        ...updates,
+      },
+    }));
+  }, [currentChatId]);
+
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
     setToastVisible(true);
@@ -109,9 +137,9 @@ export default function Home() {
     }
     
     const newBlock: Block = { id, text, color, x: posX, y: posY };
-    setBlocks(prev => [...prev, newBlock]);
+    updateCurrentChatData({ blocks: [...blocks, newBlock] });
     showToast('Added to canvas!');
-  }, [blocks.length, showToast]);
+  }, [blocks, showToast, updateCurrentChatData]);
 
   const addHighlight = useCallback((
     messageId: string,
@@ -129,22 +157,24 @@ export default function Home() {
       startOffset,
       endOffset,
     };
-    setHighlights(prev => [...prev, newHighlight]);
-  }, []);
+    updateCurrentChatData({ highlights: [...highlights, newHighlight] });
+  }, [highlights, updateCurrentChatData]);
 
   const removeHighlight = useCallback((id: string) => {
-    setHighlights(prev => prev.filter(h => h.id !== id));
+    updateCurrentChatData({ highlights: highlights.filter(h => h.id !== id) });
     showToast('Highlight removed!');
-  }, [showToast]);
+  }, [highlights, showToast, updateCurrentChatData]);
 
   const updateBlock = useCallback((id: string, updates: Partial<Block>) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
-  }, []);
+    updateCurrentChatData({ blocks: blocks.map(b => b.id === id ? { ...b, ...updates } : b) });
+  }, [blocks, updateCurrentChatData]);
 
   const deleteBlock = useCallback((id: string) => {
-    setConnections(prev => prev.filter(c => c.from !== id && c.to !== id));
-    setBlocks(prev => prev.filter(b => b.id !== id));
-  }, []);
+    updateCurrentChatData({
+      connections: connections.filter(c => c.from !== id && c.to !== id),
+      blocks: blocks.filter(b => b.id !== id),
+    });
+  }, [blocks, connections, updateCurrentChatData]);
 
   const addConnection = useCallback((
     fromId: string,
@@ -164,18 +194,16 @@ export default function Home() {
         toPos,
         color: fromBlock?.color || 'blue',
       };
-      setConnections(prev => [...prev, newConnection]);
+      updateCurrentChatData({ connections: [...connections, newConnection] });
       showToast('Connected!');
     }
-  }, [blocks, connections, showToast]);
+  }, [blocks, connections, showToast, updateCurrentChatData]);
 
   const clearCanvas = useCallback(() => {
     if (confirm('Clear canvas?')) {
-      setBlocks([]);
-      setConnections([]);
-      setHighlights([]);
+      updateCurrentChatData({ blocks: [], connections: [], highlights: [] });
     }
-  }, []);
+  }, [updateCurrentChatData]);
 
   const handleTextSelection = useCallback((
     text: string,
@@ -237,10 +265,10 @@ export default function Home() {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'canvas.json';
+    a.download = `${currentChat.title.replace(/\s/g, '_')}_canvas.json`;
     a.click();
     showToast('Saved!');
-  }, [blocks, connections, highlights, showToast]);
+  }, [blocks, connections, highlights, showToast, currentChat.title]);
 
   // Function to send a new message to the AI
   const handleSendMessage = useCallback(async (content: string) => {
@@ -253,7 +281,11 @@ export default function Home() {
       content: content.trim(),
     };
 
-    setMessages(prev => [...prev, newUserMessage]);
+    const updatedMessages = [...messages, newUserMessage];
+    updateCurrentChatData({ messages: updatedMessages });
+
+    // Update chat preview
+    updateCurrentChatData({ preview: content.trim().slice(0, 50) + '...' });
 
     try {
       const response = await fetch('/api/chat', {
@@ -261,7 +293,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ messages: [...messages, newUserMessage] }), // Send full history for context
+        body: JSON.stringify({ messages: updatedMessages }), // Send full history for context
       });
 
       if (!response.ok) {
@@ -274,16 +306,43 @@ export default function Home() {
         role: 'assistant',
         content: data.content,
       };
-      setMessages(prev => [...prev, aiResponse]);
+      updateCurrentChatData({ messages: [...updatedMessages, aiResponse] });
     } catch (error) {
       console.error('Error sending message to AI:', error);
       showToast('Failed to get AI response. Please try again.');
       // Optionally remove the user message if AI failed to respond
-      setMessages(prev => prev.filter(msg => msg.id !== newUserMessage.id));
+      updateCurrentChatData({ messages: updatedMessages.filter(msg => msg.id !== newUserMessage.id) });
     } finally {
       setIsSendingMessage(false);
     }
-  }, [messages, isSendingMessage, showToast]);
+  }, [messages, isSendingMessage, showToast, updateCurrentChatData]);
+
+  const handleNewChat = useCallback(() => {
+    const newChatId = `chat-${Object.keys(chatsData).length + 1}`;
+    setChatsData(prev => ({
+      ...prev,
+      [newChatId]: {
+        title: `New Chat ${Object.keys(chatsData).length + 1}`,
+        preview: 'Empty chat...',
+        messages: [],
+        blocks: [],
+        connections: [],
+        highlights: [],
+      },
+    }));
+    setCurrentChatId(newChatId);
+    setSelectedBlock(null); // Clear selected block when switching chats
+    setCurrentTool('text'); // Reset tool
+    setZoom(1); // Reset zoom
+    showToast('New chat created!');
+  }, [chatsData, showToast]);
+
+  const handleSelectChat = useCallback((chatId: string) => {
+    setCurrentChatId(chatId);
+    setSelectedBlock(null); // Clear selected block when switching chats
+    setCurrentTool('text'); // Reset tool
+    setZoom(1); // Reset zoom
+  }, []);
 
   // Hide popups on click outside
   useEffect(() => {
@@ -302,21 +361,36 @@ export default function Home() {
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, []);
 
+  // Prepare chat items for LeftSidebar
+  const chatItems: ChatItem[] = Object.entries(chatsData).map(([id, data]) => ({
+    id,
+    title: data.title,
+    preview: data.preview,
+    active: id === currentChatId,
+  }));
+
   return (
     <>
       <StatusBar />
       <MainToolbar
         onToggleSidebar={() => setSidebarVisible(prev => !prev)}
+        onNewChat={handleNewChat}
       />
       <div className="main-content">
-        {sidebarVisible && <LeftSidebar chats={chats} />}
+        {sidebarVisible && (
+          <LeftSidebar
+            chats={chatItems}
+            currentChatId={currentChatId}
+            onSelectChat={handleSelectChat}
+          />
+        )}
         <ChatView
           messages={messages}
           highlights={highlights}
           onTextSelection={handleTextSelection}
           onHighlightClick={handleHighlightClick}
-          onSendMessage={handleSendMessage} // Pass the new send message handler
-          isSendingMessage={isSendingMessage} // Pass loading state
+          onSendMessage={handleSendMessage}
+          isSendingMessage={isSendingMessage}
         />
         <CanvasPanel
           blocks={blocks}

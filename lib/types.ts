@@ -26,13 +26,6 @@ export interface Message {
   content: string;
 }
 
-export interface ChatItem {
-  id: string;
-  title: string;
-  preview: string;
-  active?: boolean;
-}
-
 export interface Highlight {
   id: string;
   messageId: string;
@@ -40,4 +33,21 @@ export interface Highlight {
   color: BlockColor;
   startOffset: number;
   endOffset: number;
+}
+
+// New interface to store all data for a single chat
+export interface ChatData {
+  title: string;
+  preview: string;
+  messages: Message[];
+  blocks: Block[];
+  connections: Connection[];
+  highlights: Highlight[];
+}
+
+export interface ChatItem {
+  id: string;
+  title: string;
+  preview: string;
+  active?: boolean;
 }

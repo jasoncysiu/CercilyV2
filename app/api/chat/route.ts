@@ -8,9 +8,9 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 export async function POST(req: Request) {
   try {
     if (!GEMINI_API_KEY) {
-      console.error('Server: GEMINI_API_KEY environment variable is not set. Please add it to your .env.local file.');
+      console.error('Server: GEMINI_API_KEY environment variable is not set. Please add it to your .env.local file. It should typically start with "sk-".');
       return NextResponse.json(
-        { error: 'GEMINI_API_KEY is not set. Please configure your environment variables.' },
+        { error: 'GEMINI_API_KEY is not set. Please configure your environment variables in .env.local. Ensure it is a valid Gemini API key (usually starting with "sk-").' },
         { status: 500 }
       );
     }
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     } catch (initError) {
       console.error('Server: Error initializing GoogleGenerativeAI:', initError);
       return NextResponse.json(
-        { error: 'Failed to initialize AI client. Check GEMINI_API_KEY validity.', details: (initError as Error).message },
+        { error: 'Failed to initialize AI client. Check GEMINI_API_KEY validity and format.', details: (initError as Error).message },
         { status: 500 }
       );
     }
@@ -49,6 +49,8 @@ export async function POST(req: Request) {
     const chat = model.startChat({
       history: history,
       generationConfig: {
+        // The maxOutputTokens is already set to 8192 as recommended.
+        // If you are still encountering MAX_TOKENS errors, please ensure your GEMINI_API_KEY is valid and has appropriate permissions.
         maxOutputTokens: 8192,
       },
     });
@@ -66,7 +68,7 @@ export async function POST(req: Request) {
 
     if (!text || text.trim() === '') {
       console.warn('Server: Gemini response text is empty or whitespace-only after calling .text(). This indicates the AI model did not generate content.');
-      return NextResponse.json({ content: 'The AI model did not generate any content. Please check your API key and model configuration.' });
+      return NextResponse.json({ content: 'The AI model did not generate any content. This might be due to content filtering, an invalid API key, or other issues. Please check server logs for more details.' });
     }
     
     return NextResponse.json({ content: text });

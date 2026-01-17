@@ -6,9 +6,9 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 export async function GET() {
   try {
     if (!GEMINI_API_KEY) {
-      console.error('Server: GEMINI_API_KEY environment variable is not set. Please add it to your .env.local file.');
+      console.error('Server: GEMINI_API_KEY environment variable is not set. Please add it to your .env.local file. It should typically start with "sk-".');
       return NextResponse.json(
-        { error: 'GEMINI_API_KEY is not set. Please configure your environment variables.' },
+        { error: 'GEMINI_API_KEY is not set. Please configure your environment variables in .env.local. Ensure it is a valid Gemini API key (usually starting with "sk-").' },
         { status: 500 }
       );
     }
@@ -19,7 +19,7 @@ export async function GET() {
     } catch (initError) {
       console.error('Server: Error initializing GoogleGenerativeAI for models:', initError);
       return NextResponse.json(
-        { error: 'Failed to initialize AI client for models. Check GEMINI_API_KEY validity.', details: (initError as Error).message },
+        { error: 'Failed to initialize AI client for models. Check GEMINI_API_KEY validity and format.', details: (initError as Error).message },
         { status: 500 }
       );
     }

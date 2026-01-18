@@ -28,7 +28,9 @@ export default function MainToolbar({
         <button className="toolbar-btn" onClick={onToggleSidebar}>
           ☰
         </button>
-        <span className="chat-title">{chatTitle}</span>
+        <div className="toolbar-brand">
+          <span className="platform-name">Cercily</span>
+        </div>
       </div>
       <div className="toolbar-right">
         {availableModels.length > 0 && (

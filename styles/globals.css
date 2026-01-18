@@ -86,11 +86,30 @@ body {
   background: rgba(10, 132, 255, 0.1);
 }
 
+.toolbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.platform-name {
+  color: #0a84ff;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.title-separator {
+  color: #636366;
+  font-size: 14px;
+}
+
 .chat-title {
   color: #e5e5e7;
   font-size: 16px;
   font-weight: 600;
 }
+
 
 .new-chat-btn {
   background: #0a84ff;

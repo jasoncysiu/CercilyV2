@@ -77,7 +77,7 @@ export default function Home() {
   const [projects, setProjects] = useState<Record<string, Project>>({
     'project-1': {
       id: 'project-1',
-      title: 'Cercily',
+      title: 'Sleep',
       chatIds: ['chat-1', 'chat-2'],
     },
   });

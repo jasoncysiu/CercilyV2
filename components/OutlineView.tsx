@@ -9,7 +9,6 @@ interface OutlineViewProps {
   connections: Connection[];
   onSelectBlock: (id: string) => void;
   onDeleteBlocks: (ids: string[]) => void;
-  onConvertToTable: (ids: string[]) => void;
   onClose: () => void;
 }
 
@@ -20,7 +19,7 @@ interface TreeNode {
   children: TreeNode[];
 }
 
-export default function OutlineView({ blocks, connections, onSelectBlock, onDeleteBlocks, onConvertToTable, onClose }: OutlineViewProps) {
+export default function OutlineView({ blocks, connections, onSelectBlock, onDeleteBlocks, onClose }: OutlineViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [isEditMode, setIsEditMode] = useState(false);
@@ -248,14 +247,6 @@ export default function OutlineView({ blocks, connections, onSelectBlock, onDele
             <>
               <button className="footer-tool-btn delete" onClick={handleDelete} disabled={selectedTickIds.size === 0}>
                 <X size={14} /> <span>Delete ({selectedTickIds.size})</span>
-              </button>
-              <button 
-                className="footer-tool-btn" 
-                style={{ color: '#0a84ff' }} 
-                onClick={() => { onConvertToTable(Array.from(selectedTickIds)); setSelectedTickIds(new Set()); setIsEditMode(false); }} 
-                disabled={selectedTickIds.size < 2}
-              >
-                <LayoutList size={14} /> <span>Convert to Table</span>
               </button>
               <button className="footer-btn-edit active" onClick={() => { setIsEditMode(false); setSelectedTickIds(new Set()); }}>Done</button>
             </>

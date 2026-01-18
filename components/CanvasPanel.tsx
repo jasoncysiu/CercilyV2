@@ -5,6 +5,8 @@ import { Block, Connection, BlockColor, ToolType, ConnectionPosition } from '@/l
 import CanvasBlock from './CanvasBlock';
 import NewBlockInput from './NewBlockInput';
 import OutlineView from './OutlineView';
+// No lucide-react icons needed for the simplified menu
+
 
 
 interface CanvasPanelProps {
@@ -18,7 +20,6 @@ interface CanvasPanelProps {
   onUpdateBlock: (id: string, updates: Partial<Block>) => void;
   onDeleteBlock: (id: string) => void;
   onDeleteBlocks?: (ids: string[]) => void;
-  onConvertToTable?: (ids: string[]) => void;
   onSelectBlock: (id: string | null) => void;
 
   onAddConnection: (fromId: string, fromPos: ConnectionPosition, toId: string, toPos: ConnectionPosition) => void;
@@ -51,7 +52,6 @@ export default function CanvasPanel({
   onUpdateBlock,
   onDeleteBlock,
   onDeleteBlocks,
-  onConvertToTable,
   onSelectBlock,
 
   onAddConnection,
@@ -115,13 +115,33 @@ export default function CanvasPanel({
     sourceId: string;
     targetId: string;
   } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    modelX: number;
+    modelY: number;
+  } | null>(null);
+
+  // Resizing state
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizingBlockId, setResizingBlockId] = useState<string | null>(null);
+  const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
+  const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 });
+
+  const [blockContextMenu, setBlockContextMenu] = useState<{
+    x: number;
+    y: number;
+    blockId: string;
+  } | null>(null);
+
+  const dragStartPosRef = useRef({ x: 0, y: 0 });
+
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const getConnPoint = useCallback((blockId: string, pos: ConnectionPosition) => {
-    if (typeof document === 'undefined') return { x: 0, y: 0 };
     const el = document.getElementById(blockId);
     // Use the transformed content wrapper as reference to get model-relative coordinates (scaled)
     const container = canvasContentRef.current; 
@@ -188,11 +208,18 @@ export default function CanvasPanel({
     
     // Calculate model coordinates from screen click
     // ModelX = (ScreenX - ContainerScreenLeft - PanX) / Zoom
-    const x = (e.clientX - rect.left - pan.x) / zoom - 100; // Center roughly
-    const y = (e.clientY - rect.top - pan.y) / zoom - 20;
+    const modelX = (e.clientX - rect.left - pan.x) / zoom - 100; // Center roughly
+    const modelY = (e.clientY - rect.top - pan.y) / zoom - 20;
 
-    setNewBlockPos({ x, y });
+    // Position of the menu in screen coordinates
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY - 60, // Position above the click
+      modelX,
+      modelY
+    });
   };
+
 
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     if (currentTool !== 'select') return;
@@ -246,6 +273,10 @@ export default function CanvasPanel({
 
     onSelectBlock(blockId);
     setIsDragging(true);
+    if (contextMenu) setContextMenu(null);
+    if (blockContextMenu) setBlockContextMenu(null);
+
+    dragStartPosRef.current = { x: e.clientX, y: e.clientY };
 
     // Calculate Mouse Position in Model Logic
     const mouseModelX = (e.clientX - rect.left - pan.x) / zoom;
@@ -265,6 +296,20 @@ export default function CanvasPanel({
     
     const pt = getConnPoint(blockId, pos);
     setTempLineEnd(pt);
+  };
+
+  const handleResizeMouseDown = (blockId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const block = blocks.find(b => b.id === blockId);
+    if (!block) return;
+
+    setIsResizing(true);
+    setResizingBlockId(blockId);
+    setResizeStartPos({ x: e.clientX, y: e.clientY });
+    setResizeStartSize({ 
+      width: block.width || 260, 
+      height: block.height || (document.getElementById(blockId)?.offsetHeight || 100) / zoom 
+    });
   };
 
   const renderConnectionPath = useCallback((conn: { from: string; fromPos: ConnectionPosition; to: string; toPos: ConnectionPosition; color: BlockColor }) => {
@@ -291,7 +336,11 @@ export default function CanvasPanel({
     connectingFrom: null as { blockId: string; pos: ConnectionPosition } | null,
     hoveredBlockId: null as string | null,
     isPanning: false,
-    panStart: { x: 0, y: 0 }
+    panStart: { x: 0, y: 0 },
+    isResizing: false,
+    resizingBlockId: null as string | null,
+    resizeStartPos: { x: 0, y: 0 },
+    resizeStartSize: { width: 0, height: 0 }
   });
 
   // Keep refs in sync with state for any values needed inside listeners
@@ -304,13 +353,17 @@ export default function CanvasPanel({
       connectingFrom,
       hoveredBlockId,
       isPanning,
-      panStart
+      panStart,
+      isResizing,
+      resizingBlockId,
+      resizeStartPos,
+      resizeStartSize
     };
-  }, [isDragging, selectedBlock, dragOffset, isConnecting, connectingFrom, hoveredBlockId, isPanning, panStart]);
+  }, [isDragging, selectedBlock, dragOffset, isConnecting, connectingFrom, hoveredBlockId, isPanning, panStart, isResizing, resizingBlockId, resizeStartPos, resizeStartSize]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      const { isDragging, selectedBlock, dragOffset, isConnecting, connectingFrom, isPanning, panStart } = dragInfoRef.current;
+      const { isDragging, selectedBlock, dragOffset, isConnecting, connectingFrom, isPanning, panStart, isResizing, resizingBlockId, resizeStartPos, resizeStartSize } = dragInfoRef.current;
       
       if (isPanning) {
         setPan({
@@ -360,6 +413,17 @@ export default function CanvasPanel({
           x: relativeX / zoom,
           y: relativeY / zoom,
         });
+        return;
+      }
+
+      if (isResizing && resizingBlockId) {
+        const deltaX = (e.clientX - resizeStartPos.x) / zoom;
+        const deltaY = (e.clientY - resizeStartPos.y) / zoom;
+
+        onUpdateBlock(resizingBlockId, {
+          width: Math.max(120, resizeStartSize.width + deltaX),
+          height: Math.max(40, resizeStartSize.height + deltaY)
+        });
       }
     };
 
@@ -374,6 +438,16 @@ export default function CanvasPanel({
       if (isDragging) {
         setIsDragging(false);
         skipNextClickRef.current = true;
+        
+        const dist = Math.sqrt(Math.pow(e.clientX - dragStartPosRef.current.x, 2) + Math.pow(e.clientY - dragStartPosRef.current.y, 2));
+        if (dist < 5 && selectedBlock) {
+          // Detected a click on the block - show the bar
+          setBlockContextMenu({
+            x: e.clientX,
+            y: e.clientY - 60,
+            blockId: selectedBlock
+          });
+        }
         
         if (hoveredBlockId && selectedBlock && hoveredBlockId !== selectedBlock) {
           setDropMenu({
@@ -426,6 +500,12 @@ export default function CanvasPanel({
         }
         setIsConnecting(false);
         setConnectingFrom(null);
+        skipNextClickRef.current = true;
+      }
+
+      if (isResizing) {
+        setIsResizing(false);
+        setResizingBlockId(null);
         skipNextClickRef.current = true;
       }
     };
@@ -482,11 +562,21 @@ export default function CanvasPanel({
         </div>
       </div>
 
-      <div ref={canvasAreaRef} className={`canvas-area ${currentTool === 'select' ? 'select-mode' : ''}`} onClick={handleCanvasClick} onWheel={handleWheel} onMouseDown={handleCanvasMouseDown}>
+      <div ref={canvasAreaRef} className={`canvas-area ${currentTool === 'select' ? 'select-mode' : ''}`} 
+        onClick={(e) => {
+          if (contextMenu) setContextMenu(null);
+          handleCanvasClick(e);
+        }} 
+        onWheel={handleWheel} 
+        onMouseDown={(e) => {
+          if (contextMenu) setContextMenu(null);
+          handleCanvasMouseDown(e);
+        }}>
+
         <div ref={canvasContentRef} className="canvas-transform-layer" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
 
           <svg className="connections-svg" style={{ overflow: 'visible' }}>
-            {mounted && visibleConnections.map((conn, i) => (
+            {visibleConnections.map((conn, i) => (
               <path key={i} className={`connection-line ${conn.color}`} d={renderConnectionPath(conn)} vectorEffect="non-scaling-stroke" onClick={(e) => { e.stopPropagation(); if (confirm('Delete this connection?')) onDeleteConnection?.(conn.from, conn.to); }} style={{ cursor: 'pointer', pointerEvents: 'auto' }} />
             ))}
             {isConnecting && connectingFrom && (
@@ -498,7 +588,7 @@ export default function CanvasPanel({
               <div className="click-hint">👆 Click anywhere to add a note<br /><span style={{ fontSize: '12px', opacity: 0.7 }}>or select text from chat</span></div>
             )}
             {visibleBlocks.map(block => (
-              <CanvasBlock key={block.id} block={block} isSelected={selectedBlock === block.id} isDragging={isDragging && selectedBlock === block.id} onMouseDown={(e) => handleBlockMouseDown(block.id, e)} onDelete={() => onDeleteBlock(block.id)} onEdit={(newText) => onUpdateBlock(block.id, { text: newText })} onConnectionPointMouseDown={handleConnectionPointMouseDown} onNavigateSource={() => onBlockClick?.(block.id, block.chatId, block.messageId, block.startOffset, block.endOffset)} onToggle={() => { if (onToggleCollapse) onToggleCollapse(block.id); else onUpdateBlock(block.id, { isCollapsed: !block.isCollapsed }); onSetTool('select'); }} isDropTarget={hoveredBlockId === block.id} />
+              <CanvasBlock key={block.id} block={block} isSelected={selectedBlock === block.id} isDragging={isDragging && selectedBlock === block.id} onMouseDown={(e) => handleBlockMouseDown(block.id, e)} onDelete={() => onDeleteBlock(block.id)} onEdit={(newText) => onUpdateBlock(block.id, { text: newText })} onConnectionPointMouseDown={handleConnectionPointMouseDown} onNavigateSource={() => onBlockClick?.(block.id, block.chatId, block.messageId, block.startOffset, block.endOffset)} onToggle={() => { if (onToggleCollapse) onToggleCollapse(block.id); else onUpdateBlock(block.id, { isCollapsed: !block.isCollapsed }); onSetTool('select'); }} isDropTarget={hoveredBlockId === block.id} onResizeMouseDown={handleResizeMouseDown} />
             ))}
             {(isDragging && hoveredBlockId && selectedBlock) && (
                 <svg className="connections-svg" style={{ overflow: 'visible', pointerEvents: 'none', opacity: 0.6 }}>
@@ -520,7 +610,90 @@ export default function CanvasPanel({
             {newBlockPos && <NewBlockInput x={newBlockPos.x} y={newBlockPos.y} onCancel={() => setNewBlockPos(null)} onCreate={(text, color) => { onAddBlock(text, color, newBlockPos.x, newBlockPos.y); setNewBlockPos(null); }} />}
           </div>
         </div>
+
+        {contextMenu && (
+          <div 
+            className="canva-context-menu" 
+            style={{ 
+              left: contextMenu.x, 
+              top: contextMenu.y, 
+              position: 'fixed', 
+              transform: 'translateX(-50%)' 
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <button className="context-menu-btn" onClick={() => {
+              setNewBlockPos({ x: contextMenu.modelX, y: contextMenu.modelY });
+              setContextMenu(null);
+            }}>
+              New Card
+            </button>
+            <div className="context-menu-divider" />
+            <button className="context-menu-btn" onClick={() => {
+              onRearrange?.(false);
+              setContextMenu(null);
+            }}>
+              Rearrange
+            </button>
+          </div>
+
+        )}
+
+        {blockContextMenu && (
+          <div 
+            className="canva-context-menu" 
+            style={{ 
+              left: blockContextMenu.x, 
+              top: blockContextMenu.y, 
+              position: 'fixed', 
+              transform: 'translateX(-50%)' 
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <button className="context-menu-btn" onClick={() => {
+              const block = blocks.find(b => b.id === blockContextMenu.blockId);
+              if (block) {
+                if (onToggleCollapse) onToggleCollapse(block.id);
+                else onUpdateBlock(block.id, { isCollapsed: !block.isCollapsed });
+              }
+              setBlockContextMenu(null);
+            }}>
+              {blocks.find(b => b.id === blockContextMenu.blockId)?.isCollapsed ? 'Expand' : 'Collapse'}
+            </button>
+            <div className="context-menu-divider" />
+            <button className="context-menu-btn" onClick={() => {
+              // Transition to connect tool starting from this block
+              onSetTool('connect');
+              // We'd ideally start the connection immediately, but for now we'll switch tools
+              setBlockContextMenu(null);
+            }}>
+              Link
+            </button>
+            <div className="context-menu-divider" />
+            <button className="context-menu-btn" onClick={() => {
+              const block = blocks.find(b => b.id === blockContextMenu.blockId);
+              if (block) {
+                const newText = prompt('Edit:', block.text);
+                if (newText) onUpdateBlock(block.id, { text: newText });
+              }
+              setBlockContextMenu(null);
+            }}>
+              Edit
+            </button>
+            <div className="context-menu-divider" />
+            <button className="context-menu-btn delete" onClick={() => {
+              onDeleteBlock(blockContextMenu.blockId);
+              setBlockContextMenu(null);
+            }} style={{ color: '#ff453a' }}>
+              Delete
+            </button>
+          </div>
+        )}
       </div>
+
+
       <div className="canvas-footer">
         <div className="zoom-controls">
           <button className="zoom-btn" onClick={onZoomOut}>−</button>
@@ -533,11 +706,18 @@ export default function CanvasPanel({
       {showOutline && (
         <OutlineView 
           blocks={blocks} 
-          connections={connections}
-          onSelectBlock={onSelectBlock}
-          onDeleteBlocks={onDeleteBlocks || (() => {})}
-          onConvertToTable={onConvertToTable || (() => {})}
-          onClose={() => onToggleOutline?.()}
+          connections={connections} 
+          onSelectBlock={(id) => {
+            onSelectBlock(id);
+            // Optional: Center on block
+            const el = document.getElementById(id);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          }} 
+          onDeleteBlocks={(ids) => {
+            if (onDeleteBlocks) onDeleteBlocks(ids);
+            else ids.forEach(id => onDeleteBlock(id));
+          }}
+          onClose={() => onToggleOutline?.()} 
         />
 
       )}

@@ -1,7 +1,6 @@
 'use client';
 
 import { Block, ConnectionPosition } from '@/lib/types';
-import ReactMarkdown from 'react-markdown';
 
 interface CanvasBlockProps {
   block: Block;
@@ -14,6 +13,7 @@ interface CanvasBlockProps {
   onToggle?: () => void;
   isDropTarget?: boolean;
   isDragging?: boolean;
+  onResizeMouseDown?: (blockId: string, e: React.MouseEvent) => void;
 }
 
 export default function CanvasBlock({
@@ -27,8 +27,9 @@ export default function CanvasBlock({
   onToggle,
   isDropTarget,
   isDragging,
+  onResizeMouseDown,
 }: CanvasBlockProps) {
-  const displayText = block.text.length > 120 ? block.text.slice(0, 120) + '...' : block.text;
+  const displayText = block.text;
   const isCollapsed = block.isCollapsed;
 
   const handleEdit = () => {
@@ -46,38 +47,23 @@ export default function CanvasBlock({
   return (
     <div
       id={block.id}
-      className={`canvas-block ${block.color} ${block.type === 'table' ? 'table-block' : ''} ${isSelected ? 'selected' : ''} ${isDropTarget ? 'drop-target' : ''} ${isDragging ? 'dragging' : ''}`}
-      style={{ left: block.x, top: block.y }}
+      className={`canvas-block ${block.color} ${isSelected ? 'selected' : ''} ${isDropTarget ? 'drop-target' : ''} ${isDragging ? 'dragging' : ''}`}
+      style={{ 
+        left: block.x, 
+        top: block.y,
+        width: block.width || (isCollapsed ? 160 : 260),
+        height: block.height || 'auto',
+        minHeight: isCollapsed ? 'unset' : '100px'
+      }}
       onMouseDown={onMouseDown}
     >
       <div className="block-header">
         <span className={`block-tag ${block.color}`}>{block.color}</span>
-        <div className="block-actions">
-          <button 
-            className="block-action" 
-            onClick={(e) => { e.stopPropagation(); onToggle?.(); }} 
-            title={isCollapsed ? "Expand" : "Collapse"}
-          >
-            {isCollapsed ? '↕️' : '—'}
-          </button>
-          
-          {onNavigateSource && block.messageId && (
-            <button className="block-action" onClick={(e) => { e.stopPropagation(); onNavigateSource(); }} title="Go to source">
-              🔗
-            </button>
-          )}
-          <button className="block-action edit-btn" onClick={handleEdit}>
-            ✏
-          </button>
-          <button className="block-action delete-btn" onClick={onDelete}>
-            🗑
-          </button>
-        </div>
       </div>
       
       {!isCollapsed && (
         <div 
-          className={`block-content ${block.type === 'table' ? 'table-mode' : ''} cursor-pointer hover:underline`} 
+          className="block-content cursor-pointer hover:underline" 
           onClick={(e) => {
             if (onNavigateSource && block.messageId) {
               e.stopPropagation();
@@ -85,14 +71,9 @@ export default function CanvasBlock({
             }
           }}
           title={block.messageId ? "Click to jump to chat source" : undefined}
+          style={{ height: block.height ? 'calc(100% - 40px)' : 'auto', overflow: 'hidden' }}
         >
-          {block.type === 'table' ? (
-            <div className="markdown-content">
-              <ReactMarkdown>{block.text}</ReactMarkdown>
-            </div>
-          ) : (
-            displayText
-          )}
+          {displayText}
         </div>
       )}
       
@@ -100,6 +81,23 @@ export default function CanvasBlock({
          <div className="block-content collapsed-preview" style={{ fontSize: '10px', color: '#8e8e93' }}>
            {block.text.slice(0, 20) + (block.text.length > 20 ? '...' : '')}
          </div>
+      )}
+
+      {/* Resize Handle */}
+      {!isCollapsed && onResizeMouseDown && (
+        <div 
+          className="resize-handle" 
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            onResizeMouseDown(block.id, e);
+          }}
+        >
+          <div className="resize-icon">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M11 1V11H1L11 1Z" fill="white" />
+            </svg>
+          </div>
+        </div>
       )}
 
       <div

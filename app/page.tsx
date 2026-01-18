@@ -617,65 +617,6 @@ export default function Home() {
     showToast(optimizeConnections ? 'Rearranged with auto-flipped dots!' : 'Rearranged with parents on the left!');
   }, [currentProjectId, projects, chatsData, setCurrentTool, showToast]);
 
-  const convertToTable = useCallback(async (ids: string[]) => {
-    if (ids.length < 2) return;
-    
-    // 1. Gather texts from selected cards
-    const selectedBlocks = displayedBlocks.filter(b => ids.includes(b.id));
-    const texts = selectedBlocks.map(b => b.text);
-    const avgX = selectedBlocks.reduce((sum, b) => sum + b.x, 0) / selectedBlocks.length;
-    const avgY = selectedBlocks.reduce((sum, b) => sum + b.y, 0) / selectedBlocks.length;
-
-    showToast('Structuring into a table...');
-
-    try {
-      // 2. Call our structuring API
-      const res = await fetch('/api/structure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: texts })
-      });
-
-      if (!res.ok) throw new Error('Failed to structure');
-      const { table } = await res.json();
-
-      // 3. Create new table block
-      const newId = `table-${Date.now()}`;
-      const newBlock: Block = {
-        id: newId,
-        text: table,
-        color: 'blue',
-        x: avgX,
-        y: avgY,
-        type: 'table',
-        chatId: currentChatId
-      };
-
-      // 4. Update state: add new table, remove old blocks
-      setChatsData(prev => {
-        const updated = { ...prev };
-        Object.entries(updated).forEach(([cid, chat]) => {
-          const filterBlocks = chat.blocks.filter(b => !ids.includes(b.id));
-          const hasRemoved = filterBlocks.length < chat.blocks.length;
-          
-          if (hasRemoved || cid === currentChatId) {
-            updated[cid] = {
-              ...chat,
-              blocks: cid === currentChatId ? [...filterBlocks, newBlock] : filterBlocks,
-              connections: chat.connections.filter(c => !ids.includes(c.from) && !ids.includes(c.to))
-            };
-          }
-        });
-        return updated;
-      });
-
-      showToast('Converted to Table!');
-    } catch (err) {
-      console.error(err);
-      showToast('Failed to convert to table.');
-    }
-  }, [displayedBlocks, currentChatId, showToast]);
-
 
 
   const handleTextSelection = useCallback((
@@ -1279,7 +1220,6 @@ export default function Home() {
               onZoomChange={setZoom}
               onMergeBlocks={mergeBlocks}
               onRearrange={rearrangeBlocks}
-              onConvertToTable={convertToTable}
               showOutline={showOutline}
               onToggleOutline={() => setShowOutline(prev => !prev)}
             />

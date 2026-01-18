@@ -198,6 +198,7 @@ export default function Home() {
     color: BlockColor,
     x?: number,
     y?: number,
+    isEditing?: boolean,
     messageId?: string,
     startOffset?: number,
     endOffset?: number
@@ -223,6 +224,7 @@ export default function Home() {
       messageId,
       startOffset,
       endOffset,
+      isEditing: isEditing || false,
     };
     updateCurrentChatData({ blocks: [...blocks, newBlock] });
     showToast('Added to canvas!');
@@ -672,6 +674,7 @@ export default function Home() {
         color,
         undefined,
         undefined,
+        false,
         selectionPopup.messageId,
         selectionPopup.startOffset,
         selectionPopup.endOffset

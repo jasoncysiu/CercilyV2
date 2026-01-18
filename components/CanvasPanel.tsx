@@ -3,7 +3,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Block, Connection, BlockColor, ToolType, ConnectionPosition } from '@/lib/types';
 import CanvasBlock from './CanvasBlock';
-import NewBlockInput from './NewBlockInput';
 import OutlineView from './OutlineView';
 // No lucide-react icons needed for the simplified menu
 
@@ -16,7 +15,7 @@ interface CanvasPanelProps {
   currentTool: ToolType;
   zoom: number;
   onSetTool: (tool: ToolType) => void;
-  onAddBlock: (text: string, color: BlockColor, x?: number, y?: number) => void;
+  onAddBlock: (text: string, color: BlockColor, x?: number, y?: number, isEditing?: boolean) => void;
   onUpdateBlock: (id: string, updates: Partial<Block>) => void;
   onDeleteBlock: (id: string) => void;
   onDeleteBlocks?: (ids: string[]) => void;
@@ -73,7 +72,6 @@ export default function CanvasPanel({
 
   const canvasAreaRef = useRef<HTMLDivElement>(null);
   const canvasContentRef = useRef<HTMLDivElement>(null); // This will now be the transformed wrapper
-  const [newBlockPos, setNewBlockPos] = useState<{ x: number; y: number } | null>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   
   // Dragging state
@@ -200,8 +198,6 @@ export default function CanvasPanel({
       return;
     }
     if ((e.target as HTMLElement).closest('.canvas-block')) return;
-
-    if ((e.target as HTMLElement).closest('.new-block-input')) return;
 
     const rect = canvasAreaRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -584,11 +580,30 @@ export default function CanvasPanel({
             )}
           </svg>
           <div className="canvas-content">
-            {visibleBlocks.length === 0 && currentTool === 'text' && !newBlockPos && (
+            {visibleBlocks.length === 0 && currentTool === 'text' && (
               <div className="click-hint">👆 Click anywhere to add a note<br /><span style={{ fontSize: '12px', opacity: 0.7 }}>or select text from chat</span></div>
             )}
             {visibleBlocks.map(block => (
-              <CanvasBlock key={block.id} block={block} isSelected={selectedBlock === block.id} isDragging={isDragging && selectedBlock === block.id} onMouseDown={(e) => handleBlockMouseDown(block.id, e)} onDelete={() => onDeleteBlock(block.id)} onEdit={(newText) => onUpdateBlock(block.id, { text: newText })} onConnectionPointMouseDown={handleConnectionPointMouseDown} onNavigateSource={() => onBlockClick?.(block.id, block.chatId, block.messageId, block.startOffset, block.endOffset)} onToggle={() => { if (onToggleCollapse) onToggleCollapse(block.id); else onUpdateBlock(block.id, { isCollapsed: !block.isCollapsed }); onSetTool('select'); }} isDropTarget={hoveredBlockId === block.id} onResizeMouseDown={handleResizeMouseDown} />
+              <CanvasBlock 
+                key={block.id} 
+                block={block} 
+                isSelected={selectedBlock === block.id} 
+                isDragging={isDragging && selectedBlock === block.id} 
+                onMouseDown={(e) => handleBlockMouseDown(block.id, e)} 
+                onDelete={() => onDeleteBlock(block.id)} 
+                onEdit={(newText) => {
+                  if (newText.trim() === '') {
+                    onDeleteBlock(block.id);
+                  } else {
+                    onUpdateBlock(block.id, { text: newText, isEditing: false });
+                  }
+                }} 
+                onConnectionPointMouseDown={handleConnectionPointMouseDown} 
+                onNavigateSource={() => onBlockClick?.(block.id, block.chatId, block.messageId, block.startOffset, block.endOffset)} 
+                onToggle={() => { if (onToggleCollapse) onToggleCollapse(block.id); else onUpdateBlock(block.id, { isCollapsed: !block.isCollapsed }); onSetTool('select'); }} 
+                isDropTarget={hoveredBlockId === block.id} 
+                onResizeMouseDown={handleResizeMouseDown} 
+              />
             ))}
             {(isDragging && hoveredBlockId && selectedBlock) && (
                 <svg className="connections-svg" style={{ overflow: 'visible', pointerEvents: 'none', opacity: 0.6 }}>
@@ -607,7 +622,6 @@ export default function CanvasPanel({
                 </div>
               </div>
             )}
-            {newBlockPos && <NewBlockInput x={newBlockPos.x} y={newBlockPos.y} onCancel={() => setNewBlockPos(null)} onCreate={(text, color) => { onAddBlock(text, color, newBlockPos.x, newBlockPos.y); setNewBlockPos(null); }} />}
           </div>
         </div>
 
@@ -624,7 +638,7 @@ export default function CanvasPanel({
             onMouseDown={(e) => e.stopPropagation()}
           >
             <button className="context-menu-btn" onClick={() => {
-              setNewBlockPos({ x: contextMenu.modelX, y: contextMenu.modelY });
+              onAddBlock('', 'yellow', contextMenu.modelX, contextMenu.modelY, true);
               setContextMenu(null);
             }}>
               New Card
@@ -673,11 +687,7 @@ export default function CanvasPanel({
             </button>
             <div className="context-menu-divider" />
             <button className="context-menu-btn" onClick={() => {
-              const block = blocks.find(b => b.id === blockContextMenu.blockId);
-              if (block) {
-                const newText = prompt('Edit:', block.text);
-                if (newText) onUpdateBlock(block.id, { text: newText });
-              }
+              onUpdateBlock(blockContextMenu.blockId, { isEditing: true });
               setBlockContextMenu(null);
             }}>
               Edit

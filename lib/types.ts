@@ -16,6 +16,7 @@ export interface Block {
   isHidden?: boolean;
   width?: number;
   height?: number;
+  isEditing?: boolean;
 }
 
 export interface Connection {

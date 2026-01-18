@@ -1,6 +1,7 @@
 'use client';
 
 import { Block, ConnectionPosition } from '@/lib/types';
+import { useRef, useEffect, useState } from 'react';
 
 interface CanvasBlockProps {
   block: Block;
@@ -31,11 +32,34 @@ export default function CanvasBlock({
 }: CanvasBlockProps) {
   const displayText = block.text;
   const isCollapsed = block.isCollapsed;
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [localText, setLocalText] = useState(block.text);
 
-  const handleEdit = () => {
-    const newText = prompt('Edit:', block.text);
-    if (newText) {
-      onEdit(newText);
+  useEffect(() => {
+    setLocalText(block.text);
+  }, [block.text]);
+
+  useEffect(() => {
+    if (block.isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [block.isEditing]);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setLocalText(e.target.value);
+  };
+
+  const handleBlur = () => {
+    onEdit(localText);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      onEdit(localText);
+    }
+    if (e.key === 'Escape') {
+      onEdit(block.text); // Revert to original
     }
   };
 
@@ -47,7 +71,7 @@ export default function CanvasBlock({
   return (
     <div
       id={block.id}
-      className={`canvas-block ${block.color} ${isSelected ? 'selected' : ''} ${isDropTarget ? 'drop-target' : ''} ${isDragging ? 'dragging' : ''}`}
+      className={`canvas-block ${block.color} ${isSelected ? 'selected' : ''} ${isDropTarget ? 'drop-target' : ''} ${isDragging ? 'dragging' : ''} ${block.isEditing ? 'editing' : ''}`}
       style={{ 
         left: block.x, 
         top: block.y,
@@ -61,7 +85,7 @@ export default function CanvasBlock({
         <span className={`block-tag ${block.color}`}>{block.color}</span>
       </div>
       
-      {!isCollapsed && (
+      {!isCollapsed && !block.isEditing && (
         <div 
           className="block-content cursor-pointer hover:underline" 
           onClick={(e) => {
@@ -74,6 +98,27 @@ export default function CanvasBlock({
           style={{ height: block.height ? 'calc(100% - 40px)' : 'auto', overflow: 'hidden' }}
         >
           {displayText}
+        </div>
+      )}
+
+      {!isCollapsed && block.isEditing && (
+        <div className="block-content editing" style={{ 
+          height: block.height ? `calc(${block.height}px - 50px)` : 'auto',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <textarea
+            ref={textareaRef}
+            className="w-full h-full bg-transparent border-none outline-none resize-none text-inherit font-inherit"
+            style={{ flex: 1 }}
+            value={localText}
+            onChange={handleTextChange}
+            onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
+            placeholder="Type your note..."
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          />
         </div>
       )}
       

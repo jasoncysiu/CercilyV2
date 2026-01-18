@@ -32,8 +32,9 @@ interface CanvasPanelProps {
   onZoomChange?: (zoom: number) => void;
   onDeleteConnection?: (fromId: string, toId: string) => void;
   onMergeBlocks?: (sourceId: string, targetId: string) => void;
-  onRearrange?: () => void;
+  onRearrange?: (optimizeConnections?: boolean) => void;
   showOutline?: boolean;
+
   onToggleOutline?: () => void;
 }
 
@@ -76,6 +77,10 @@ export default function CanvasPanel({
   // Dragging state
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 }); // In Model Coordinates
+  
+  // Panning state
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
   
   // Connecting state
@@ -165,8 +170,14 @@ export default function CanvasPanel({
       setJustCompletedConnection(false);
       return;
     }
-    if (currentTool !== 'text') return;
+    if (currentTool !== 'text') {
+      if (currentTool === 'select' && !(e.target as HTMLElement).closest('.canvas-block')) {
+        // This was a background click in select mode - handled by mousedown for pan
+      }
+      return;
+    }
     if ((e.target as HTMLElement).closest('.canvas-block')) return;
+
     if ((e.target as HTMLElement).closest('.new-block-input')) return;
 
     const rect = canvasAreaRef.current?.getBoundingClientRect();
@@ -179,6 +190,15 @@ export default function CanvasPanel({
 
     setNewBlockPos({ x, y });
   };
+
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    if (currentTool !== 'select') return;
+    if ((e.target as HTMLElement).closest('.canvas-block')) return;
+    
+    setIsPanning(true);
+    setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  };
+
 
   const handleBlockMouseDown = (blockId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Important to prevent canvas drag
@@ -266,7 +286,9 @@ export default function CanvasPanel({
     dragOffset: { x: 0, y: 0 },
     isConnecting: false,
     connectingFrom: null as { blockId: string; pos: ConnectionPosition } | null,
-    hoveredBlockId: null as string | null
+    hoveredBlockId: null as string | null,
+    isPanning: false,
+    panStart: { x: 0, y: 0 }
   });
 
   // Keep refs in sync with state for any values needed inside listeners
@@ -277,14 +299,24 @@ export default function CanvasPanel({
       dragOffset,
       isConnecting,
       connectingFrom,
-      hoveredBlockId
+      hoveredBlockId,
+      isPanning,
+      panStart
     };
-  }, [isDragging, selectedBlock, dragOffset, isConnecting, connectingFrom, hoveredBlockId]);
+  }, [isDragging, selectedBlock, dragOffset, isConnecting, connectingFrom, hoveredBlockId, isPanning, panStart]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      const { isDragging, selectedBlock, dragOffset, isConnecting, connectingFrom } = dragInfoRef.current;
+      const { isDragging, selectedBlock, dragOffset, isConnecting, connectingFrom, isPanning, panStart } = dragInfoRef.current;
       
+      if (isPanning) {
+        setPan({
+          x: e.clientX - panStart.x,
+          y: e.clientY - panStart.y
+        });
+        return;
+      }
+
       if (isDragging && selectedBlock) {
         const canvasArea = canvasAreaRef.current;
         if (!canvasArea) return;
@@ -329,7 +361,12 @@ export default function CanvasPanel({
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      const { isDragging, selectedBlock, isConnecting, connectingFrom, hoveredBlockId } = dragInfoRef.current;
+      const { isDragging, selectedBlock, isConnecting, connectingFrom, hoveredBlockId, isPanning } = dragInfoRef.current;
+
+      if (isPanning) {
+        setIsPanning(false);
+        return;
+      }
 
       if (isDragging) {
         setIsDragging(false);
@@ -429,14 +466,22 @@ export default function CanvasPanel({
           <button className={`canvas-tool-btn ${currentTool === 'select' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'select' ? 'text' : 'select')} title="Select & Move">↖</button>
           <button className={`canvas-tool-btn ${currentTool === 'connect' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'connect' ? 'text' : 'connect')} title="Connect blocks">🔗</button>
           <button className="canvas-tool-btn" onClick={() => { if (areAllCollapsed) onExpandAll?.(); else onCollapseAll?.(); onSetTool('select'); }} title={areAllCollapsed ? 'Expand all' : 'Collapse all'} style={{ fontSize: '18px' }}>{areAllCollapsed ? '⊞' : '⊟'}</button>
-          <button className="canvas-tool-btn" onClick={onRearrange} title="Rearrange (Tidy Layout)" style={{ fontSize: '18px' }}>🪄</button>
+          <button 
+            className="canvas-tool-btn" 
+            onClick={() => onRearrange?.(false)} 
+            onDoubleClick={() => onRearrange?.(true)}
+            title="Single click: Tidy | Double click: Tidy + Auto-flip dots" 
+            style={{ fontSize: '18px' }}
+          >🪄</button>
           <button className={`canvas-tool-btn ${showOutline ? 'active' : ''}`} onClick={onToggleOutline} title="Show Outline" style={{ fontSize: '18px' }}>📋</button>
+
           <button className="canvas-tool-btn" onClick={onClearCanvas} title="Clear canvas">🗑</button>
         </div>
       </div>
 
-      <div ref={canvasAreaRef} className={`canvas-area ${currentTool === 'select' ? 'select-mode' : ''}`} onClick={handleCanvasClick} onWheel={handleWheel}>
+      <div ref={canvasAreaRef} className={`canvas-area ${currentTool === 'select' ? 'select-mode' : ''}`} onClick={handleCanvasClick} onWheel={handleWheel} onMouseDown={handleCanvasMouseDown}>
         <div ref={canvasContentRef} className="canvas-transform-layer" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
+
           <svg className="connections-svg" style={{ overflow: 'visible' }}>
             {visibleConnections.map((conn, i) => (
               <path key={i} className={`connection-line ${conn.color}`} d={renderConnectionPath(conn)} vectorEffect="non-scaling-stroke" onClick={(e) => { e.stopPropagation(); if (confirm('Delete this connection?')) onDeleteConnection?.(conn.from, conn.to); }} style={{ cursor: 'pointer', pointerEvents: 'auto' }} />

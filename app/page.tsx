@@ -44,7 +44,7 @@ export default function Home() {
 
   const [chatsData, setChatsData] = useState<Record<string, ChatData>>({
     'chat-1': {
-      title: 'Sleep Problems',
+      title: 'Cercily',
       preview: 'Social jetlag & screens...',
       messages: sleepProblemMessages,
       blocks: [
@@ -252,18 +252,57 @@ export default function Home() {
   }, [highlights, showToast, updateCurrentChatData]);
 
   const updateBlock = useCallback((id: string, updates: Partial<Block>) => {
-    // Find which chat this block belongs to and update it
     setChatsData(prev => {
       const updated: Record<string, ChatData> = {};
       Object.entries(prev).forEach(([chatId, chat]) => {
+        const block = chat.blocks.find(b => b.id === id);
+        if (!block) {
+          updated[chatId] = chat;
+          return;
+        }
+
+        const newBlock = { ...block, ...updates };
+        const updatedBlocks = chat.blocks.map(b => b.id === id ? newBlock : b);
+        
+        // If movement is detected, auto-snap connection points
+        let updatedConnections = chat.connections;
+        if (updates.x !== undefined || updates.y !== undefined) {
+          const blockMap = new Map(updatedBlocks.map(b => [b.id, b]));
+          updatedConnections = chat.connections.map(conn => {
+            if (conn.from === id || conn.to === id) {
+              const b1 = blockMap.get(conn.from);
+              const b2 = blockMap.get(conn.to);
+              if (b1 && b2) {
+                const dx = b2.x - b1.x;
+                const dy = b2.y - b1.y;
+                let fromPos = conn.fromPos;
+                let toPos = conn.toPos;
+                
+                // Determine best side based on vector between blocks
+                if (Math.abs(dx) > Math.abs(dy)) {
+                  fromPos = dx > 0 ? 'right' : 'left';
+                  toPos = dx > 0 ? 'left' : 'right';
+                } else {
+                  fromPos = dy > 0 ? 'bottom' : 'top';
+                  toPos = dy > 0 ? 'top' : 'bottom';
+                }
+                return { ...conn, fromPos, toPos };
+              }
+            }
+            return conn;
+          });
+        }
+
         updated[chatId] = {
           ...chat,
-          blocks: chat.blocks.map(b => b.id === id ? { ...b, ...updates } : b),
+          blocks: updatedBlocks,
+          connections: updatedConnections,
         };
       });
       return updated;
     });
   }, []);
+
 
   const deleteBlock = useCallback((id: string) => {
     // Find which chat this block belongs to and delete it from there
@@ -447,69 +486,125 @@ export default function Home() {
     }
   }, [updateCurrentChatData]);
 
-  const rearrangeBlocks = useCallback(() => {
+  const rearrangeBlocks = useCallback((optimizeConnections = false) => {
     const projectChatIds = projects[currentProjectId]?.chatIds || [];
-    const allBlocks = projectChatIds.flatMap(id => (chatsData[id]?.blocks || []));
+    const allBlocks = projectChatIds.flatMap(id => (chatsData[id]?.blocks || [])).filter(b => !b.isHidden);
     const allConnections = projectChatIds.flatMap(id => (chatsData[id]?.connections || []));
 
     if (allBlocks.length === 0) return;
 
     // Map parent -> children
     const childrenMap = new Map<string, string[]>();
-    const parentOfMap = new Map<string, string>();
+    const parentOfMap = new Map<string, string[]>();
     
     allConnections.forEach(conn => {
       if (!childrenMap.has(conn.from)) childrenMap.set(conn.from, []);
       childrenMap.get(conn.from)!.push(conn.to);
-      parentOfMap.set(conn.to, conn.from);
+      
+      if (!parentOfMap.has(conn.to)) parentOfMap.set(conn.to, []);
+      parentOfMap.get(conn.to)!.push(conn.from);
     });
 
-    // Find roots
+    // Find roots (blocks that aren't children of any other visible block)
     const roots = allBlocks.filter(b => !parentOfMap.has(b.id));
     
     const newPositions = new Map<string, { x: number, y: number }>();
-    const levelSpacing = 300; // Left to right
-    const nodeSpacing = 150; // Top to bottom
+    const levelSpacing = 350; // Increased spacing for better readability
+    const nodeSpacing = 160; 
 
-    let currentY = 100;
+    // 1. Calculate subtree heights
+    const subtreeHeight = new Map<string, number>();
+    const visited = new Set<string>();
 
-    const layoutNode = (nodeId: string, x: number) => {
-      const node = allBlocks.find(b => b.id === nodeId);
-      if (!node) return;
+    const calculateHeight = (nodeId: string): number => {
+      // Prevent infinite loops in case of cycles
+      if (visited.has(nodeId)) return 0;
+      visited.add(nodeId);
 
       const children = childrenMap.get(nodeId) || [];
-      
       if (children.length === 0) {
-        newPositions.set(nodeId, { x, y: currentY });
-        currentY += nodeSpacing;
-        return;
+        subtreeHeight.set(nodeId, nodeSpacing);
+        return nodeSpacing;
       }
 
-      const startY = currentY;
+      let h = 0;
       children.forEach(childId => {
-        layoutNode(childId, x + levelSpacing);
+        h += calculateHeight(childId);
       });
-      const endY = currentY;
-
-      // Center parent relative to children
-      const centerY = (startY + (endY - nodeSpacing)) / 2;
-      newPositions.set(nodeId, { x, y: centerY });
+      
+      // Ensure parent height is at least nodeSpacing
+      const result = Math.max(h, nodeSpacing);
+      subtreeHeight.set(nodeId, result);
+      return result;
     };
 
     roots.forEach(root => {
-      layoutNode(root.id, 100);
-      currentY += 100; // Space between root trees
+      visited.clear();
+      calculateHeight(root.id);
+    });
+
+    // 2. Position nodes
+    let currentRootY = 100;
+    const positionedCount = new Set<string>();
+
+    const layoutNode = (nodeId: string, x: number, startY: number) => {
+      if (positionedCount.has(nodeId)) return;
+      positionedCount.add(nodeId);
+
+      const h = subtreeHeight.get(nodeId) || nodeSpacing;
+      const centerY = startY + h / 2 - 40; // Adjust for card height
+      
+      newPositions.set(nodeId, { x, y: centerY });
+
+      let currentChildY = startY;
+      const children = childrenMap.get(nodeId) || [];
+      children.forEach(childId => {
+        layoutNode(childId, x + levelSpacing, currentChildY);
+        currentChildY += subtreeHeight.get(childId) || nodeSpacing;
+      });
+    };
+
+    roots.forEach(root => {
+      layoutNode(root.id, 100, currentRootY);
+      currentRootY += (subtreeHeight.get(root.id) || nodeSpacing) + 100;
     });
 
     setChatsData(prev => {
       const updated = { ...prev };
       projectChatIds.forEach(cid => {
         if (updated[cid]) {
+          const chat = updated[cid];
+          const blocksWithNewPos = chat.blocks.map(b => {
+            const pos = newPositions.get(b.id);
+            return pos ? { ...b, x: pos.x, y: pos.y } : b;
+          });
+          
+          const blockMap = new Map(blocksWithNewPos.map(b => [b.id, b]));
+
           updated[cid] = {
-            ...updated[cid],
-            blocks: updated[cid].blocks.map(b => {
-              const pos = newPositions.get(b.id);
-              return pos ? { ...b, x: pos.x, y: pos.y } : b;
+            ...chat,
+            blocks: blocksWithNewPos,
+            connections: chat.connections.map(conn => {
+              if (!optimizeConnections) return conn;
+
+              const b1 = blockMap.get(conn.from);
+              const b2 = blockMap.get(conn.to);
+              if (b1 && b2) {
+                const dx = b2.x - b1.x;
+                const dy = b2.y - b1.y;
+                let fromPos = conn.fromPos;
+                let toPos = conn.toPos;
+                
+                if (Math.abs(dx) > Math.abs(dy)) {
+                  fromPos = dx > 0 ? 'right' : 'left';
+                  toPos = dx > 0 ? 'left' : 'right';
+                } else {
+                  fromPos = dy > 0 ? 'bottom' : 'top';
+                  toPos = dy > 0 ? 'top' : 'bottom';
+                }
+                return { ...conn, fromPos, toPos };
+              }
+              return conn;
             })
           };
         }
@@ -518,8 +613,10 @@ export default function Home() {
     });
 
     setCurrentTool('select');
-    showToast('Notes rearranged into mind map!');
+    showToast(optimizeConnections ? 'Rearranged with auto-flipped dots!' : 'Rearranged with parents on the left!');
   }, [currentProjectId, projects, chatsData, setCurrentTool, showToast]);
+
+
 
   const handleTextSelection = useCallback((
     text: string,

@@ -562,8 +562,13 @@ body {
 }
 
 .canvas-area.select-mode {
-  cursor: default;
+  cursor: grab;
 }
+
+.canvas-area.select-mode:active {
+  cursor: grabbing;
+}
+
 
 .canvas-content {
   position: absolute;

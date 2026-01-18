@@ -12,40 +12,29 @@ import SettingsPanel from '@/components/SettingsPanel';
 import ResizeHandle from '@/components/ResizeHandle';
 import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight, ChatData, Project, ProjectItem } from '@/lib/types';
 
-const initialMessages: Message[] = [
+const sleepProblemMessages: Message[] = [
   {
     id: '1',
     role: 'user',
-    content: 'What are the key parameters for improving fuel efficiency in an internal combustion engine?',
+    content: "I'm always tired. I go to bed at like 1 AM and then I can't wake up for my 8 AM meeting. Is something wrong with me?",
   },
   {
     id: '2',
     role: 'assistant',
-    content: `Key parameters for fuel efficiency:
-
-1. Air-Fuel Ratio (AFR) - Stoichiometric ratio is 14.7:1. Lean burn can reach 20:1.
-
-2. Compression Ratio - Higher ratios (12:1+) increase efficiency but need premium fuel.
-
-3. Ignition Timing - Optimal spark advance varies with RPM and load.
-
-4. Variable Valve Timing (VVT) - Optimizes across RPM range.
-
-5. Friction Reduction - Can reduce losses by 5-10%.`,
+    content: "It sounds like your body's clock is just a bit confused! Here are the most common reasons why people struggle with sleep in daily life:\n\n1. Late-night scrolling: Blue light from your phone tricks your brain into thinking it is daytime.\n2. Social Jetlag: Staying up late and sleeping in on weekends messes with your internal rhythm.\n3. Caffeine: Drinking coffee or energy drinks too late in the afternoon.\n4. Stress: Thinking about work or your to-do list right before you close your eyes.\n5. Inconsistent schedule: Going to bed at a different time every single night.",
   },
+];
+
+const sleepSolutionMessages: Message[] = [
   {
-    id: '3',
+    id: 's1',
     role: 'user',
-    content: 'What about turbocharging vs supercharging?',
+    content: "How can I actually get better sleep without buying expensive sleep trackers or blackout curtains?",
   },
   {
-    id: '4',
+    id: 's2',
     role: 'assistant',
-    content: `Turbocharger: Uses exhaust energy (free power), better cruise efficiency, but has turbo lag.
-
-Supercharger: Instant response but parasitic belt-driven loss.
-
-For efficiency: Turbo wins - Modern twin-scroll turbos minimize lag with 15-25% efficiency gains.`,
+    content: "You can reach 'Super Sleep' with simple daily habits!\n\n1. The 3-2-1 Rule: Stop eating 3 hours before bed, stop working 2 hours before, and stop looking at screens 1 hour before.\n2. Morning Light: Get 5-10 minutes of sunlight right after you wake up. It 'resets' your internal clock.\n3. Cool Room: Your body needs to drop its temperature to fall asleep, so crack a window or turn down the heat.\n4. Consistency: Try to wake up at the same time every day, even on weekends.",
   },
 ];
 
@@ -55,19 +44,31 @@ export default function Home() {
 
   const [chatsData, setChatsData] = useState<Record<string, ChatData>>({
     'chat-1': {
-      title: 'Cercily',
-      preview: 'Fuel efficiency parameters...',
-      messages: initialMessages,
-      blocks: [],
-      connections: [],
+      title: 'Sleep Problems',
+      preview: 'Social jetlag & screens...',
+      messages: sleepProblemMessages,
+      blocks: [
+        { id: 'b1', text: 'Late Night Scrolling (Blue Light)', color: 'blue', x: 100, y: 150 },
+        { id: 'b2', text: "Social Jetlag (Confused Brain)", color: 'orange', x: 450, y: 150 },
+      ],
+      connections: [
+        { from: 'b1', fromPos: 'right', to: 'b2', toPos: 'left', color: 'blue' },
+      ],
       highlights: [],
     },
     'chat-2': {
-      title: 'Wedding Planning',
-      preview: 'Venue options...',
-      messages: [{ id: '5', role: 'user', content: 'What are some good wedding venues?' }],
-      blocks: [],
-      connections: [],
+      title: 'Sleep Tips',
+      preview: '3-2-1 Rule & Morning Light',
+      messages: sleepSolutionMessages,
+      blocks: [
+        { id: 'b3', text: '3-2-1 Rule (No screens 1hr before)', color: 'green', x: 100, y: 350 },
+        { id: 'b4', text: 'Morning Sunlight (Resets clock)', color: 'yellow', x: 100, y: 500 },
+        { id: 'b5', text: 'Natural Deep Sleep', color: 'blue', x: 500, y: 425 },
+      ],
+      connections: [
+        { from: 'b3', fromPos: 'right', to: 'b5', toPos: 'left', color: 'green' },
+        { from: 'b4', fromPos: 'right', to: 'b5', toPos: 'left', color: 'yellow' },
+      ],
       highlights: [],
     },
   });
@@ -76,7 +77,7 @@ export default function Home() {
   const [projects, setProjects] = useState<Record<string, Project>>({
     'project-1': {
       id: 'project-1',
-      title: 'Default Project',
+      title: 'Sleep',
       chatIds: ['chat-1', 'chat-2'],
     },
   });
@@ -107,6 +108,8 @@ export default function Home() {
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]); // Initialize as empty
   const [activeChatModel, setActiveChatModel] = useState<string>(''); // Initialize as empty
+  const [showOutline, setShowOutline] = useState(false);
+
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -176,7 +179,7 @@ export default function Home() {
 
   const blockIdRef = useRef(0);
   const highlightIdRef = useRef(0);
-  const messageIdRef = useRef(initialMessages.length); // To generate unique message IDs
+  const messageIdRef = useRef(100); // To generate unique message IDs
 
   // Helper to update the current chat's data
   const updateCurrentChatData = useCallback((updates: Partial<ChatData>) => {
@@ -277,6 +280,23 @@ export default function Home() {
     });
   }, []);
 
+  const deleteBlocks = useCallback((ids: string[]) => {
+    const idSet = new Set(ids);
+    setChatsData(prev => {
+      const updated: Record<string, ChatData> = {};
+      Object.entries(prev).forEach(([chatId, chat]) => {
+        updated[chatId] = {
+          ...chat,
+          blocks: chat.blocks.filter(b => !idSet.has(b.id)),
+          connections: chat.connections.filter(c => !idSet.has(c.from) && !idSet.has(c.to)),
+        };
+      });
+      return updated;
+    });
+    showToast(`Deleted ${ids.length} blocks`);
+  }, [showToast]);
+
+
   const toggleCollapse = useCallback((id: string) => {
     setChatsData(prev => {
       const updated: Record<string, ChatData> = {};
@@ -356,7 +376,8 @@ export default function Home() {
       });
       return updated;
     });
-  }, []);
+    setCurrentTool('select');
+  }, [setCurrentTool]);
 
   const expandAll = useCallback(() => {
     setChatsData(prev => {
@@ -371,7 +392,8 @@ export default function Home() {
       });
       return updated;
     });
-  }, []);
+    setCurrentTool('select');
+  }, [setCurrentTool]);
 
   const addConnection = useCallback((
     fromId: string,
@@ -424,6 +446,80 @@ export default function Home() {
       updateCurrentChatData({ blocks: [], connections: [], highlights: [] });
     }
   }, [updateCurrentChatData]);
+
+  const rearrangeBlocks = useCallback(() => {
+    const projectChatIds = projects[currentProjectId]?.chatIds || [];
+    const allBlocks = projectChatIds.flatMap(id => (chatsData[id]?.blocks || []));
+    const allConnections = projectChatIds.flatMap(id => (chatsData[id]?.connections || []));
+
+    if (allBlocks.length === 0) return;
+
+    // Map parent -> children
+    const childrenMap = new Map<string, string[]>();
+    const parentOfMap = new Map<string, string>();
+    
+    allConnections.forEach(conn => {
+      if (!childrenMap.has(conn.from)) childrenMap.set(conn.from, []);
+      childrenMap.get(conn.from)!.push(conn.to);
+      parentOfMap.set(conn.to, conn.from);
+    });
+
+    // Find roots
+    const roots = allBlocks.filter(b => !parentOfMap.has(b.id));
+    
+    const newPositions = new Map<string, { x: number, y: number }>();
+    const levelSpacing = 300; // Left to right
+    const nodeSpacing = 150; // Top to bottom
+
+    let currentY = 100;
+
+    const layoutNode = (nodeId: string, x: number) => {
+      const node = allBlocks.find(b => b.id === nodeId);
+      if (!node) return;
+
+      const children = childrenMap.get(nodeId) || [];
+      
+      if (children.length === 0) {
+        newPositions.set(nodeId, { x, y: currentY });
+        currentY += nodeSpacing;
+        return;
+      }
+
+      const startY = currentY;
+      children.forEach(childId => {
+        layoutNode(childId, x + levelSpacing);
+      });
+      const endY = currentY;
+
+      // Center parent relative to children
+      const centerY = (startY + (endY - nodeSpacing)) / 2;
+      newPositions.set(nodeId, { x, y: centerY });
+    };
+
+    roots.forEach(root => {
+      layoutNode(root.id, 100);
+      currentY += 100; // Space between root trees
+    });
+
+    setChatsData(prev => {
+      const updated = { ...prev };
+      projectChatIds.forEach(cid => {
+        if (updated[cid]) {
+          updated[cid] = {
+            ...updated[cid],
+            blocks: updated[cid].blocks.map(b => {
+              const pos = newPositions.get(b.id);
+              return pos ? { ...b, x: pos.x, y: pos.y } : b;
+            })
+          };
+        }
+      });
+      return updated;
+    });
+
+    setCurrentTool('select');
+    showToast('Notes rearranged into mind map!');
+  }, [currentProjectId, projects, chatsData, setCurrentTool, showToast]);
 
   const handleTextSelection = useCallback((
     text: string,
@@ -1010,7 +1106,9 @@ export default function Home() {
               onAddBlock={addBlock}
               onUpdateBlock={updateBlock}
               onDeleteBlock={deleteBlock}
+              onDeleteBlocks={deleteBlocks}
               onSelectBlock={setSelectedBlock}
+
               onBlockClick={handleBlockClickFromCanvas}
               onAddConnection={addConnection}
               onDeleteConnection={deleteConnection}
@@ -1023,6 +1121,9 @@ export default function Home() {
               onExpandAll={expandAll}
               onZoomChange={setZoom}
               onMergeBlocks={mergeBlocks}
+              onRearrange={rearrangeBlocks}
+              showOutline={showOutline}
+              onToggleOutline={() => setShowOutline(prev => !prev)}
             />
           </div>
         </div>

@@ -4,6 +4,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Block, Connection, BlockColor, ToolType, ConnectionPosition } from '@/lib/types';
 import CanvasBlock from './CanvasBlock';
 import NewBlockInput from './NewBlockInput';
+import OutlineView from './OutlineView';
+
 
 interface CanvasPanelProps {
   blocks: Block[];
@@ -15,7 +17,9 @@ interface CanvasPanelProps {
   onAddBlock: (text: string, color: BlockColor, x?: number, y?: number) => void;
   onUpdateBlock: (id: string, updates: Partial<Block>) => void;
   onDeleteBlock: (id: string) => void;
+  onDeleteBlocks?: (ids: string[]) => void;
   onSelectBlock: (id: string | null) => void;
+
   onAddConnection: (fromId: string, fromPos: ConnectionPosition, toId: string, toPos: ConnectionPosition) => void;
   onClearCanvas: () => void;
   onZoomIn: () => void;
@@ -28,7 +32,11 @@ interface CanvasPanelProps {
   onZoomChange?: (zoom: number) => void;
   onDeleteConnection?: (fromId: string, toId: string) => void;
   onMergeBlocks?: (sourceId: string, targetId: string) => void;
+  onRearrange?: () => void;
+  showOutline?: boolean;
+  onToggleOutline?: () => void;
 }
+
 
 export default function CanvasPanel({
   blocks,
@@ -40,7 +48,9 @@ export default function CanvasPanel({
   onAddBlock,
   onUpdateBlock,
   onDeleteBlock,
+  onDeleteBlocks,
   onSelectBlock,
+
   onAddConnection,
   onClearCanvas,
   onZoomIn,
@@ -53,7 +63,11 @@ export default function CanvasPanel({
   onZoomChange,
   onDeleteConnection,
   onMergeBlocks,
+  onRearrange,
+  showOutline,
+  onToggleOutline,
 }: CanvasPanelProps) {
+
   const canvasAreaRef = useRef<HTMLDivElement>(null);
   const canvasContentRef = useRef<HTMLDivElement>(null); // This will now be the transformed wrapper
   const [newBlockPos, setNewBlockPos] = useState<{ x: number; y: number } | null>(null);
@@ -415,9 +429,12 @@ export default function CanvasPanel({
           <button className={`canvas-tool-btn ${currentTool === 'select' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'select' ? 'text' : 'select')} title="Select & Move">↖</button>
           <button className={`canvas-tool-btn ${currentTool === 'connect' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'connect' ? 'text' : 'connect')} title="Connect blocks">🔗</button>
           <button className="canvas-tool-btn" onClick={() => { if (areAllCollapsed) onExpandAll?.(); else onCollapseAll?.(); onSetTool('select'); }} title={areAllCollapsed ? 'Expand all' : 'Collapse all'} style={{ fontSize: '18px' }}>{areAllCollapsed ? '⊞' : '⊟'}</button>
+          <button className="canvas-tool-btn" onClick={onRearrange} title="Rearrange (Tidy Layout)" style={{ fontSize: '18px' }}>🪄</button>
+          <button className={`canvas-tool-btn ${showOutline ? 'active' : ''}`} onClick={onToggleOutline} title="Show Outline" style={{ fontSize: '18px' }}>📋</button>
           <button className="canvas-tool-btn" onClick={onClearCanvas} title="Clear canvas">🗑</button>
         </div>
       </div>
+
       <div ref={canvasAreaRef} className={`canvas-area ${currentTool === 'select' ? 'select-mode' : ''}`} onClick={handleCanvasClick} onWheel={handleWheel}>
         <div ref={canvasContentRef} className="canvas-transform-layer" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
           <svg className="connections-svg" style={{ overflow: 'visible' }}>
@@ -465,6 +482,25 @@ export default function CanvasPanel({
         <div className="canvas-stats">{visibleBlocks.length} blocks • {visibleConnections.length} connections</div>
         <div className="export-btns"><button className="export-btn" onClick={onExport}>💾 Save</button></div>
       </div>
+      {showOutline && (
+        <OutlineView 
+          blocks={blocks} 
+          connections={connections} 
+          onSelectBlock={(id) => {
+            onSelectBlock(id);
+            // Optional: Center on block
+            const el = document.getElementById(id);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          }} 
+          onDeleteBlocks={(ids) => {
+            if (onDeleteBlocks) onDeleteBlocks(ids);
+            else ids.forEach(id => onDeleteBlock(id));
+          }}
+          onClose={() => onToggleOutline?.()} 
+        />
+
+      )}
     </div>
+
   );
 }

@@ -44,7 +44,7 @@ export default function Home() {
 
   const [chatsData, setChatsData] = useState<Record<string, ChatData>>({
     'chat-1': {
-      title: 'Cercily',
+      title: 'Sleep Problems',
       preview: 'Social jetlag & screens...',
       messages: sleepProblemMessages,
       blocks: [
@@ -77,10 +77,11 @@ export default function Home() {
   const [projects, setProjects] = useState<Record<string, Project>>({
     'project-1': {
       id: 'project-1',
-      title: 'Sleep',
+      title: 'Cercily',
       chatIds: ['chat-1', 'chat-2'],
     },
   });
+
 
   // Derived state for the currently active chat
   const currentChat = chatsData[currentChatId];

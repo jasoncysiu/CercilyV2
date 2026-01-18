@@ -21,6 +21,10 @@ interface CanvasPanelProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onExport: () => void;
+  onBlockClick?: (blockId: string, chatId?: string, messageId?: string, startOffset?: number, endOffset?: number) => void;
+  onToggleCollapse?: (id: string) => void;
+  onCollapseAll?: () => void;
+  onExpandAll?: () => void;
 }
 
 export default function CanvasPanel({
@@ -39,6 +43,10 @@ export default function CanvasPanel({
   onZoomIn,
   onZoomOut,
   onExport,
+  onBlockClick,
+  onToggleCollapse,
+  onCollapseAll,
+  onExpandAll,
 }: CanvasPanelProps) {
   const canvasAreaRef = useRef<HTMLDivElement>(null);
   const canvasContentRef = useRef<HTMLDivElement>(null);
@@ -52,6 +60,7 @@ export default function CanvasPanel({
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectingFrom, setConnectingFrom] = useState<{ blockId: string; pos: ConnectionPosition } | null>(null);
   const [tempLineEnd, setTempLineEnd] = useState({ x: 0, y: 0 });
+  const [justCompletedConnection, setJustCompletedConnection] = useState(false);
 
   const getConnPoint = useCallback((blockId: string, pos: ConnectionPosition) => {
     const el = document.getElementById(blockId);
@@ -84,6 +93,10 @@ export default function CanvasPanel({
   }, []);
 
   const handleCanvasClick = (e: React.MouseEvent) => {
+    if (justCompletedConnection) {
+      setJustCompletedConnection(false);
+      return;
+    }
     if (currentTool !== 'text') return;
     if ((e.target as HTMLElement).closest('.canvas-block')) return;
     if ((e.target as HTMLElement).closest('.new-block-input')) return;
@@ -154,6 +167,7 @@ export default function CanvasPanel({
           if (toEl && toEl.id !== connectingFrom.blockId) {
             const toPos = target.dataset.pos as ConnectionPosition;
             onAddConnection(connectingFrom.blockId, connectingFrom.pos, toEl.id, toPos);
+            setJustCompletedConnection(true);
           }
         }
         setIsConnecting(false);
@@ -270,6 +284,11 @@ export default function CanvasPanel({
               onDelete={() => onDeleteBlock(block.id)}
               onEdit={(newText) => onUpdateBlock(block.id, { text: newText })}
               onConnectionPointMouseDown={handleConnectionPointMouseDown}
+              onNavigateSource={() => {
+                if (onBlockClick) {
+                  onBlockClick(block.id, block.chatId, block.messageId, block.startOffset, block.endOffset);
+                }
+              }}
             />
           ))}
           

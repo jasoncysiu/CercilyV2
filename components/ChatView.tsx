@@ -32,7 +32,8 @@ export default function ChatView({
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
-    const text = selection?.toString().trim() || '';
+    const selectedText = selection?.toString() || '';
+    const text = selectedText.trim();
     
     if (text.length > 0 && text.length < 500 && selection?.rangeCount) {
       const range = selection.getRangeAt(0);
@@ -49,30 +50,19 @@ export default function ChatView({
       const messageId = messageEl?.getAttribute('data-message-id') || '';
       
       if (messageId) {
-        // Calculate offsets within the message text
-        const startOffset = getTextOffset(messageBubble!, range.startContainer, range.startOffset);
-        const endOffset = getTextOffset(messageBubble!, range.endContainer, range.endOffset);
-        
-        onTextSelection(text, rect, messageId, startOffset, endOffset);
+        // Find the message to get its content
+        const message = messages.find(m => m.id === messageId);
+        if (message) {
+          // Find the exact position of the selected text in the message content
+          const contentIndex = message.content.indexOf(text);
+          if (contentIndex !== -1) {
+            const startOffset = contentIndex;
+            const endOffset = contentIndex + text.length;
+            onTextSelection(text, rect, messageId, startOffset, endOffset);
+          }
+        }
       }
     }
-  };
-
-  // Get the text offset from the start of the element
-  const getTextOffset = (root: Element, targetNode: Node, targetOffset: number): number => {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-    let offset = 0;
-    let node = walker.nextNode();
-    
-    while (node) {
-      if (node === targetNode) {
-        return offset + targetOffset;
-      }
-      offset += node.textContent?.length || 0;
-      node = walker.nextNode();
-    }
-    
-    return offset;
   };
 
   // Apply highlights to message content

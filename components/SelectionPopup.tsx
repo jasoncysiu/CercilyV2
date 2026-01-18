@@ -8,9 +8,18 @@ interface SelectionPopupProps {
   y: number;
   onColorClick: (color: BlockColor) => void;
   onCopyClick: () => void;
+  currentColor?: BlockColor;
 }
 
 const colors: BlockColor[] = ['yellow', 'blue', 'pink', 'green', 'orange'];
+
+const colorLabels: Record<BlockColor, string> = {
+  yellow: '💛 Yellow',
+  blue: '💙 Blue',
+  pink: '💗 Pink',
+  green: '💚 Green',
+  orange: '🧡 Orange',
+};
 
 export default function SelectionPopup({
   visible,
@@ -18,6 +27,7 @@ export default function SelectionPopup({
   y,
   onColorClick,
   onCopyClick,
+  currentColor = 'yellow',
 }: SelectionPopupProps) {
   return (
     <div
@@ -30,6 +40,7 @@ export default function SelectionPopup({
           key={color}
           className={`color-btn ${color}`}
           onClick={() => onColorClick(color)}
+          title={colorLabels[color]}
         />
       ))}
       <div className="popup-divider" />

@@ -9,6 +9,7 @@ interface CanvasBlockProps {
   onDelete: () => void;
   onEdit: (newText: string) => void;
   onConnectionPointMouseDown: (blockId: string, pos: ConnectionPosition, e: React.MouseEvent) => void;
+  onNavigateSource?: () => void;
 }
 
 export default function CanvasBlock({
@@ -18,6 +19,7 @@ export default function CanvasBlock({
   onDelete,
   onEdit,
   onConnectionPointMouseDown,
+  onNavigateSource,
 }: CanvasBlockProps) {
   const displayText = block.text.length > 120 ? block.text.slice(0, 120) + '...' : block.text;
 
@@ -43,6 +45,11 @@ export default function CanvasBlock({
       <div className="block-header">
         <span className={`block-tag ${block.color}`}>{block.color}</span>
         <div className="block-actions">
+          {onNavigateSource && block.messageId && (
+            <button className="block-action" onClick={(e) => { e.stopPropagation(); onNavigateSource(); }} title="Go to source">
+              🔗
+            </button>
+          )}
           <button className="block-action edit-btn" onClick={handleEdit}>
             ✏
           </button>
@@ -51,7 +58,18 @@ export default function CanvasBlock({
           </button>
         </div>
       </div>
-      <div className="block-content">{displayText}</div>
+      <div 
+        className="block-content cursor-pointer hover:underline" 
+        onClick={(e) => {
+          if (onNavigateSource && block.messageId) {
+            e.stopPropagation();
+            onNavigateSource();
+          }
+        }}
+        title={block.messageId ? "Click to jump to chat source" : undefined}
+      >
+        {displayText}
+      </div>
       <div
         className="connection-point top"
         data-pos="top"

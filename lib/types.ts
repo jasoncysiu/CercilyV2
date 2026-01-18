@@ -6,6 +6,13 @@ export interface Block {
   color: BlockColor;
   x: number;
   y: number;
+  // Optional metadata
+  chatId?: string;
+  messageId?: string;
+  startOffset?: number;
+  endOffset?: number;
+  parentId?: string;
+  isCollapsed?: boolean;
 }
 
 export interface Connection {
@@ -50,4 +57,16 @@ export interface ChatItem {
   title: string;
   preview: string;
   active?: boolean;
+}
+
+export interface Project {
+  id: string;
+  title: string;
+  chatIds: string[];
+}
+
+export interface ProjectItem {
+  id: string;
+  title: string;
+  chats: ChatItem[];
 }

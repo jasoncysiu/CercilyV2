@@ -13,26 +13,33 @@ export async function GET() {
       );
     }
 
-    let genAI: GoogleGenerativeAI;
-    try {
-      genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    } catch (initError) {
-      console.error('Server: Error initializing GoogleGenerativeAI for models:', initError);
-      return NextResponse.json(
-        { error: 'Failed to initialize AI client for models. Check GEMINI_API_KEY validity and format.', details: (initError as Error).message },
-        { status: 500 }
-      );
-    }
-
-    const models = await genAI.listModels();
-    const modelNames = models.map(model => ({
-      name: model.name,
-      displayName: model.displayName,
-      description: model.description,
-      inputTokenLimit: model.inputTokenLimit,
-      outputTokenLimit: model.outputTokenLimit,
-      supportedGenerationMethods: model.supportedGenerationMethods,
-    }));
+    // List of available Gemini models with generateContent support
+    const modelNames = [
+      {
+        name: 'models/gemini-2.5-pro',
+        displayName: 'Gemini 2.5 Pro',
+        description: 'Latest Gemini model with advanced capabilities',
+        inputTokenLimit: 1000000,
+        outputTokenLimit: 8192,
+        supportedGenerationMethods: ['generateContent'],
+      },
+      {
+        name: 'models/gemini-2.0-flash',
+        displayName: 'Gemini 2.0 Flash',
+        description: 'Fast and efficient Gemini model',
+        inputTokenLimit: 1000000,
+        outputTokenLimit: 8192,
+        supportedGenerationMethods: ['generateContent'],
+      },
+      {
+        name: 'models/gemini-1.5-pro',
+        displayName: 'Gemini 1.5 Pro',
+        description: 'Previous generation pro model',
+        inputTokenLimit: 1000000,
+        outputTokenLimit: 8192,
+        supportedGenerationMethods: ['generateContent'],
+      },
+    ];
     
     return NextResponse.json(modelNames);
   } catch (error) {

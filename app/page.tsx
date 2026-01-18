@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import StatusBar from '@/components/StatusBar';
 import MainToolbar from '@/components/MainToolbar';
 import LeftSidebar from '@/components/LeftSidebar';
 import ChatView from '@/components/ChatView';
@@ -10,7 +9,8 @@ import SelectionPopup from '@/components/SelectionPopup';
 import Toast from '@/components/Toast';
 import RemoveHighlightPopup from '@/components/RemoveHighlightPopup';
 import SettingsPanel from '@/components/SettingsPanel';
-import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight, ChatData } from '@/lib/types';
+import ResizeHandle from '@/components/ResizeHandle';
+import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight, ChatData, Project, ProjectItem } from '@/lib/types';
 
 const initialMessages: Message[] = [
   {
@@ -51,9 +51,11 @@ For efficiency: Turbo wins - Modern twin-scroll turbos minimize lag with 15-25% 
 
 export default function Home() {
   const [currentChatId, setCurrentChatId] = useState<string>('chat-1');
+  const [currentProjectId, setCurrentProjectId] = useState<string>('project-1');
+
   const [chatsData, setChatsData] = useState<Record<string, ChatData>>({
     'chat-1': {
-      title: 'Engine Optimization',
+      title: 'Cercily',
       preview: 'Fuel efficiency parameters...',
       messages: initialMessages,
       blocks: [],
@@ -70,12 +72,26 @@ export default function Home() {
     },
   });
 
+  // Projects map project id -> Project
+  const [projects, setProjects] = useState<Record<string, Project>>({
+    'project-1': {
+      id: 'project-1',
+      title: 'Default Project',
+      chatIds: ['chat-1', 'chat-2'],
+    },
+  });
+
   // Derived state for the currently active chat
   const currentChat = chatsData[currentChatId];
   const messages = currentChat.messages;
   const blocks = currentChat.blocks;
   const connections = currentChat.connections;
   const highlights = currentChat.highlights;
+
+  // For the canvas we show all blocks/connections/highlights within the current project
+  const projectChatIds = projects[currentProjectId]?.chatIds || [];
+  const displayedBlocks = projectChatIds.flatMap(id => (chatsData[id]?.blocks || []).map(b => ({ ...b, chatId: id })));
+  const displayedConnections = projectChatIds.flatMap(id => (chatsData[id]?.connections || []));
 
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [currentTool, setCurrentTool] = useState<ToolType>('text');
@@ -84,6 +100,8 @@ export default function Home() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [highlightColor, setHighlightColor] = useState<BlockColor>('yellow');
+  const [chatPaneWidth, setChatPaneWidth] = useState(50); // Percentage width
   
   // Model selection states
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -171,7 +189,15 @@ export default function Home() {
     }));
   }, [currentChatId]);
 
-  const addBlock = useCallback((text: string, color: BlockColor, x?: number, y?: number) => {
+  const addBlock = useCallback((
+    text: string,
+    color: BlockColor,
+    x?: number,
+    y?: number,
+    messageId?: string,
+    startOffset?: number,
+    endOffset?: number
+  ) => {
     const id = `block-${++blockIdRef.current}`;
     let posX = x;
     let posY = y;
@@ -183,10 +209,20 @@ export default function Home() {
       posY = 30 + row * 130;
     }
     
-    const newBlock: Block = { id, text, color, x: posX, y: posY };
+    const newBlock: Block = {
+      id,
+      text,
+      color,
+      x: posX,
+      y: posY,
+      chatId: currentChatId,
+      messageId,
+      startOffset,
+      endOffset,
+    };
     updateCurrentChatData({ blocks: [...blocks, newBlock] });
     showToast('Added to canvas!');
-  }, [blocks, showToast, updateCurrentChatData]);
+  }, [blocks, showToast, updateCurrentChatData, currentChatId]);
 
   const addHighlight = useCallback((
     messageId: string,
@@ -213,15 +249,78 @@ export default function Home() {
   }, [highlights, showToast, updateCurrentChatData]);
 
   const updateBlock = useCallback((id: string, updates: Partial<Block>) => {
-    updateCurrentChatData({ blocks: blocks.map(b => b.id === id ? { ...b, ...updates } : b) });
-  }, [blocks, updateCurrentChatData]);
+    // Find which chat this block belongs to and update it
+    setChatsData(prev => {
+      const updated: Record<string, ChatData> = {};
+      Object.entries(prev).forEach(([chatId, chat]) => {
+        updated[chatId] = {
+          ...chat,
+          blocks: chat.blocks.map(b => b.id === id ? { ...b, ...updates } : b),
+        };
+      });
+      return updated;
+    });
+  }, []);
 
   const deleteBlock = useCallback((id: string) => {
-    updateCurrentChatData({
-      connections: connections.filter(c => c.from !== id && c.to !== id),
-      blocks: blocks.filter(b => b.id !== id),
+    // Find which chat this block belongs to and delete it from there
+    setChatsData(prev => {
+      const updated: Record<string, ChatData> = {};
+      Object.entries(prev).forEach(([chatId, chat]) => {
+        updated[chatId] = {
+          ...chat,
+          blocks: chat.blocks.filter(b => b.id !== id),
+          connections: chat.connections.filter(c => c.from !== id && c.to !== id),
+        };
+      });
+      return updated;
     });
-  }, [blocks, connections, updateCurrentChatData]);
+  }, []);
+
+  const toggleCollapse = useCallback((id: string) => {
+    setChatsData(prev => {
+      const updated: Record<string, ChatData> = {};
+      Object.entries(prev).forEach(([chatId, chat]) => {
+        updated[chatId] = {
+          ...chat,
+          blocks: chat.blocks.map(b => 
+            b.id === id ? { ...b, isCollapsed: !b.isCollapsed } : b
+          ),
+        };
+      });
+      return updated;
+    });
+  }, []);
+
+  const collapseAll = useCallback(() => {
+    setChatsData(prev => {
+      const updated: Record<string, ChatData> = {};
+      Object.entries(prev).forEach(([chatId, chat]) => {
+        updated[chatId] = {
+          ...chat,
+          blocks: chat.blocks.map(b => 
+            b.parentId ? { ...b, isCollapsed: true } : b
+          ),
+        };
+      });
+      return updated;
+    });
+  }, []);
+
+  const expandAll = useCallback(() => {
+    setChatsData(prev => {
+      const updated: Record<string, ChatData> = {};
+      Object.entries(prev).forEach(([chatId, chat]) => {
+        updated[chatId] = {
+          ...chat,
+          blocks: chat.blocks.map(b => 
+            ({ ...b, isCollapsed: false })
+          ),
+        };
+      });
+      return updated;
+    });
+  }, []);
 
   const addConnection = useCallback((
     fromId: string,
@@ -260,6 +359,21 @@ export default function Home() {
     endOffset: number
   ) => {
     if (text.length > 0 && text.length < 500) {
+      // Check if this exact text is already highlighted
+      const existingHighlight = highlights.find(
+        h => h.messageId === messageId && h.startOffset === startOffset && h.endOffset === endOffset
+      );
+
+      if (existingHighlight) {
+        // Remove the highlight if it already exists
+        removeHighlight(existingHighlight.id);
+      } else {
+        // Add highlight with the current highlight color
+        addHighlight(messageId, text, highlightColor, startOffset, endOffset);
+        showToast(`Highlighted in ${highlightColor}!`);
+      }
+
+      // Show the popup to allow color change
       setSelectionPopup({
         visible: true,
         x: Math.max(10, rect.left + rect.width / 2 - 120),
@@ -271,7 +385,7 @@ export default function Home() {
       });
       setRemoveHighlightPopup(prev => ({ ...prev, visible: false })); // Hide remove popup
     }
-  }, []);
+  }, [highlights, highlightColor, addHighlight, removeHighlight, showToast]);
 
   const handleHighlightClick = useCallback((highlightId: string, rect: DOMRect) => {
     setRemoveHighlightPopup({
@@ -285,21 +399,38 @@ export default function Home() {
 
   const handleSelectionPopupColorClick = useCallback((color: BlockColor) => {
     if (selectionPopup.text) {
-      addBlock(selectionPopup.text, color);
+      addBlock(
+        selectionPopup.text,
+        color,
+        undefined,
+        undefined,
+        selectionPopup.messageId,
+        selectionPopup.startOffset,
+        selectionPopup.endOffset
+      );
       
+      // Set the new highlight color for future selections
+      setHighlightColor(color);
+      
+      // Update the existing highlight color if one exists
       if (selectionPopup.messageId) {
-        addHighlight(
-          selectionPopup.messageId,
-          selectionPopup.text,
-          color,
-          selectionPopup.startOffset,
-          selectionPopup.endOffset
+        const existingHighlight = highlights.find(
+          h => h.messageId === selectionPopup.messageId && 
+               h.startOffset === selectionPopup.startOffset && 
+               h.endOffset === selectionPopup.endOffset
         );
+        if (existingHighlight) {
+          const updatedHighlights = highlights.map(h =>
+            h.id === existingHighlight.id ? { ...h, color } : h
+          );
+          updateCurrentChatData({ highlights: updatedHighlights });
+          showToast(`Highlight changed to ${color}!`);
+        }
       }
       
       setSelectionPopup(prev => ({ ...prev, visible: false }));
     }
-  }, [selectionPopup, addBlock, addHighlight]);
+  }, [selectionPopup, highlights, addBlock, updateCurrentChatData, showToast]);
 
   const handleCopyClick = useCallback(() => {
     navigator.clipboard.writeText(selectionPopup.text);
@@ -409,11 +540,137 @@ export default function Home() {
       },
     }));
     setCurrentChatId(newChatId);
+    // Add new chat to the current project
+    setProjects(prev => ({
+      ...prev,
+      [currentProjectId]: {
+        ...prev[currentProjectId],
+        chatIds: [...prev[currentProjectId].chatIds, newChatId],
+      },
+    }));
     setSelectedBlock(null); // Clear selected block when switching chats
     setCurrentTool('text'); // Reset tool
     setZoom(1); // Reset zoom
     showToast('New chat created!');
+  }, [chatsData, showToast, currentProjectId]);
+
+  const handleNewChatInProject = useCallback((projectId: string) => {
+    const newChatId = `chat-${Object.keys(chatsData).length + 1}`;
+    setChatsData(prev => ({
+      ...prev,
+      [newChatId]: {
+        title: `New Chat ${Object.keys(chatsData).length + 1}`,
+        preview: 'Empty chat...',
+        messages: [],
+        blocks: [],
+        connections: [],
+        highlights: [],
+      },
+    }));
+    
+    // Add new chat to the specified project
+    setProjects(prev => ({
+      ...prev,
+      [projectId]: {
+        ...prev[projectId],
+        chatIds: [...prev[projectId].chatIds, newChatId],
+      },
+    }));
+    
+    // Switch to the new chat
+    setCurrentChatId(newChatId);
+    setSelectedBlock(null);
+    setCurrentTool('text');
+    setZoom(1);
+    showToast('New chat created!');
   }, [chatsData, showToast]);
+
+  const handleNewProject = useCallback(() => {
+    const newProjectId = `project-${Object.keys(projects).length + 1}`;
+    const newChatId = `chat-${Object.keys(chatsData).length + 1}`;
+    
+    // Create new chat for the project
+    setChatsData(prev => ({
+      ...prev,
+      [newChatId]: {
+        title: `New Chat 1`,
+        preview: 'Empty chat...',
+        messages: [],
+        blocks: [],
+        connections: [],
+        highlights: [],
+      },
+    }));
+    
+    // Create new project with the chat
+    setProjects(prev => ({
+      ...prev,
+      [newProjectId]: {
+        id: newProjectId,
+        title: `New Project ${Object.keys(projects).length}`,
+        chatIds: [newChatId],
+      },
+    }));
+    
+    // Switch to the new project and chat
+    setCurrentProjectId(newProjectId);
+    setCurrentChatId(newChatId);
+    setSelectedBlock(null);
+    setCurrentTool('text');
+    setZoom(1);
+    showToast('New project created!');
+  }, [projects, chatsData, showToast]);
+
+  const handleDeleteProject = useCallback((projectId: string) => {
+    setProjects(prev => {
+      const { [projectId]: _removed, ...rest } = prev;
+
+      // If no projects remain, create a default one
+      if (Object.keys(rest).length === 0) {
+        const newProjectId = 'project-1';
+        const newChatId = 'chat-default';
+        
+        // Create new default chat
+        setChatsData(prevChats => ({
+          ...prevChats,
+          [newChatId]: {
+            title: 'New Chat 1',
+            preview: 'Empty chat...',
+            messages: [],
+            blocks: [],
+            connections: [],
+            highlights: [],
+          },
+        }));
+
+        // Set current project and chat to the new defaults
+        setCurrentProjectId(newProjectId);
+        setCurrentChatId(newChatId);
+
+        return {
+          [newProjectId]: {
+            id: newProjectId,
+            title: 'Default Project',
+            chatIds: [newChatId],
+          },
+        };
+      }
+
+      // If the deleted project was active, switch to the first remaining project
+      if (projectId === currentProjectId) {
+        const firstProjectId = Object.keys(rest)[0];
+        const firstChatId = rest[firstProjectId]?.chatIds[0];
+        setCurrentProjectId(firstProjectId);
+        if (firstChatId) {
+          setCurrentChatId(firstChatId);
+        }
+      }
+
+      return rest;
+    });
+
+    showToast('Project deleted');
+  }, [currentProjectId, showToast]);
 
   const handleSelectChat = useCallback((chatId: string) => {
     setCurrentChatId(chatId);
@@ -421,6 +678,170 @@ export default function Home() {
     setCurrentTool('text'); // Reset tool
     setZoom(1); // Reset zoom
   }, []);
+
+  const handleBlockClickFromCanvas = useCallback((
+    blockId: string,
+    chatId?: string,
+    messageId?: string,
+    startOffset?: number,
+    endOffset?: number
+  ) => {
+    // If a chatId is provided, switch to that chat
+    if (chatId && chatId !== currentChatId) {
+      handleSelectChat(chatId);
+    }
+    // Highlight the block
+    setSelectedBlock(blockId);
+    
+    // If we have message location data, scroll to that text in the chat
+    if (messageId && startOffset !== undefined && endOffset !== undefined) {
+      // Use setTimeout to ensure DOM is ready after chat switch
+      setTimeout(() => {
+        const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageEl) {
+          // Scroll message into view
+          messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Highlight the specific text range
+          const messageContent = messageEl.querySelector('.message-bubble');
+          if (messageContent) {
+            // Find all text nodes and reconstruct the text with selection
+            const range = document.createRange();
+            const selection = window.getSelection();
+            
+            // Walk through text nodes to find the exact position
+            let charCount = 0;
+            let startNode: Node | null = null;
+            let endNode: Node | null = null;
+            let startOffset2 = 0;
+            let endOffset2 = 0;
+            
+            const walker = document.createTreeWalker(
+              messageContent,
+              NodeFilter.SHOW_TEXT,
+              null
+            );
+            
+            let node: Node | null = walker.nextNode();
+            while (node) {
+              const nodeLength = node.textContent?.length || 0;
+              
+              if (startNode === null && charCount + nodeLength > startOffset) {
+                startNode = node;
+                startOffset2 = startOffset - charCount;
+              }
+              
+              if (charCount + nodeLength >= endOffset && endNode === null) {
+                endNode = node;
+                endOffset2 = endOffset - charCount;
+                break;
+              }
+              
+              charCount += nodeLength;
+              node = walker.nextNode();
+            }
+            
+            if (startNode && endNode && selection) {
+              try {
+                range.setStart(startNode, Math.min(startOffset2, startNode.textContent?.length || 0));
+                range.setEnd(endNode, Math.min(endOffset2, endNode.textContent?.length || 0));
+                selection.removeAllRanges();
+                selection.addRange(range);
+              } catch (e) {
+                console.error('Failed to set text selection:', e);
+              }
+            }
+          }
+        }
+      }, 100);
+      
+      showToast('Navigated to source location');
+    } else {
+      showToast('Click on the chat thread to highlight the source message');
+    }
+  }, [currentChatId, handleSelectChat, showToast]);
+
+  const handleSelectProject = useCallback((projectId: string) => {
+    // Switch to the project and its first chat
+    const firstChatId = projects[projectId]?.chatIds[0];
+    if (firstChatId) {
+      setCurrentProjectId(projectId);
+      setCurrentChatId(firstChatId);
+      setSelectedBlock(null); // Clear selected block when switching projects
+      setCurrentTool('text'); // Reset tool
+      setZoom(1); // Reset zoom
+    }
+  }, [projects]);
+
+  const handleRenameProject = useCallback((projectId: string, newTitle: string) => {
+    if (newTitle.trim()) {
+      setProjects(prev => ({
+        ...prev,
+        [projectId]: {
+          ...prev[projectId],
+          title: newTitle.trim(),
+        },
+      }));
+      showToast('Project renamed!');
+    }
+  }, [showToast]);
+
+  const handleRenameChat = useCallback((chatId: string, newTitle: string) => {
+    if (newTitle.trim()) {
+      setChatsData(prev => ({
+        ...prev,
+        [chatId]: {
+          ...prev[chatId],
+          title: newTitle.trim(),
+        },
+      }));
+      showToast('Chat renamed!');
+    }
+  }, [showToast]);
+
+  const handleDeleteChat = useCallback((chatId: string) => {
+    setChatsData(prev => {
+      const { [chatId]: _removed, ...rest } = prev;
+
+      // If no chats remain, create a fresh one
+      if (Object.keys(rest).length === 0) {
+        const newId = 'chat-1';
+        const newChats: Record<string, ChatData> = {
+          [newId]: {
+            title: 'New Chat 1',
+            preview: 'Empty chat...',
+            messages: [],
+            blocks: [],
+            connections: [],
+            highlights: [],
+          },
+        };
+        setCurrentChatId(newId);
+        return newChats;
+      }
+
+      // If the deleted chat was active, switch to the first remaining chat
+      if (chatId === currentChatId) {
+        const firstId = Object.keys(rest)[0];
+        setCurrentChatId(firstId);
+      }
+
+      return rest;
+    });
+
+    // Also remove the chat from any project that contains it
+    setProjects(prev => {
+      const updated: Record<string, Project> = {};
+      Object.entries(prev).forEach(([pid, p]) => {
+        updated[pid] = { ...p, chatIds: p.chatIds.filter(id => id !== chatId) };
+      });
+
+      // If current project no longer has chats, keep it but leave empty
+      return updated;
+    });
+
+    showToast('Chat deleted');
+  }, [currentChatId, showToast]);
 
   // Hide popups on click outside
   useEffect(() => {
@@ -440,16 +861,19 @@ export default function Home() {
   }, []);
 
   // Prepare chat items for LeftSidebar
-  const chatItems: ChatItem[] = Object.entries(chatsData).map(([id, data]) => ({
-    id,
-    title: data.title,
-    preview: data.preview,
-    active: id === currentChatId,
+  const projectItems: ProjectItem[] = Object.values(projects).map(p => ({
+    id: p.id,
+    title: p.title,
+    chats: p.chatIds.map(id => ({
+      id,
+      title: chatsData[id]?.title || 'Untitled',
+      preview: chatsData[id]?.preview || '',
+      active: id === currentChatId,
+    })),
   }));
 
   return (
     <>
-      <StatusBar />
       <MainToolbar
         onToggleSidebar={() => setSidebarVisible(prev => !prev)}
         onNewChat={handleNewChat}
@@ -465,37 +889,66 @@ export default function Home() {
       <div className="main-content">
         {sidebarVisible && (
           <LeftSidebar
-            chats={chatItems}
+            projects={projectItems}
             currentChatId={currentChatId}
             onSelectChat={handleSelectChat}
+            onSelectProject={handleSelectProject}
+            onDeleteChat={handleDeleteChat}
+            onNewProject={handleNewProject}
+            onDeleteProject={handleDeleteProject}
+            onNewChatInProject={handleNewChatInProject}
+            onRenameProject={handleRenameProject}
+            onRenameChat={handleRenameChat}
           />
         )}
-        <ChatView
-          key={currentChatId}
-          messages={messages}
-          highlights={highlights}
-          onTextSelection={handleTextSelection}
-          onHighlightClick={handleHighlightClick}
-          onSendMessage={handleSendMessage}
-          isSendingMessage={isSendingMessage}
-        />
-        <CanvasPanel
-          blocks={blocks}
-          connections={connections}
-          selectedBlock={selectedBlock}
-          currentTool={currentTool}
-          zoom={zoom}
-          onSetTool={setCurrentTool}
-          onAddBlock={addBlock}
-          onUpdateBlock={updateBlock}
-          onDeleteBlock={deleteBlock}
-          onSelectBlock={setSelectedBlock}
-          onAddConnection={addConnection}
-          onClearCanvas={clearCanvas}
-          onZoomIn={() => setZoom(z => Math.min(2, z + 0.1))}
-          onZoomOut={() => setZoom(z => Math.max(0.5, z - 0.1))}
-          onExport={exportJson}
-        />
+        <div className="panes-container">
+          <div className="chat-pane" style={{ width: `calc(${chatPaneWidth}% - 4px)` }}>
+            <ChatView
+              key={currentChatId}
+              messages={messages}
+              highlights={highlights}
+              onTextSelection={handleTextSelection}
+              onHighlightClick={handleHighlightClick}
+              onSendMessage={handleSendMessage}
+              isSendingMessage={isSendingMessage}
+            />
+          </div>
+          <ResizeHandle
+            onResize={(newLeftWidth) => {
+              const container = document.querySelector('.main-content');
+              if (container) {
+                const containerWidth = container.clientWidth;
+                const newPercentage = (newLeftWidth / containerWidth) * 100;
+                setChatPaneWidth(newPercentage);
+              }
+            }}
+            minLeftWidth={250}
+            minRightWidth={250}
+          />
+          <div className="canvas-pane" style={{ width: `calc(${100 - chatPaneWidth}% - 4px)` }}>
+            <CanvasPanel
+              blocks={displayedBlocks}
+              connections={displayedConnections}
+              selectedBlock={selectedBlock}
+              currentTool={currentTool}
+              zoom={zoom}
+              onSetTool={setCurrentTool}
+              onAddBlock={addBlock}
+              onUpdateBlock={updateBlock}
+              onDeleteBlock={deleteBlock}
+              onSelectBlock={setSelectedBlock}
+              onBlockClick={handleBlockClickFromCanvas}
+              onAddConnection={addConnection}
+              onClearCanvas={clearCanvas}
+              onZoomIn={() => setZoom(z => Math.min(2, z + 0.1))}
+              onZoomOut={() => setZoom(z => Math.max(0.5, z - 0.1))}
+              onExport={exportJson}
+              onToggleCollapse={toggleCollapse}
+              onCollapseAll={collapseAll}
+              onExpandAll={expandAll}
+            />
+          </div>
+        </div>
       </div>
       <SelectionPopup
         visible={selectionPopup.visible}
@@ -503,6 +956,7 @@ export default function Home() {
         y={selectionPopup.y}
         onColorClick={handleSelectionPopupColorClick}
         onCopyClick={handleCopyClick}
+        currentColor={highlightColor}
       />
       <RemoveHighlightPopup
         visible={removeHighlightPopup.visible}
@@ -514,15 +968,7 @@ export default function Home() {
             setRemoveHighlightPopup(prev => ({ ...prev, visible: false }));
           }
         }}
-        onClose={() => setRemoveHighlightPopup(prev => ({ ...prev, visible: false }))}
-      />
-      <Toast message={toastMessage} visible={toastVisible} />
-      <SettingsPanel
-        isOpen={showSettingsPanel}
-        onClose={() => setShowSettingsPanel(false)}
-        availableModels={availableModels}
-        onSelectAvailableModels={setAvailableModels}
-      />
+        onClose={() => setRemoveHighlightPopup(prev => ({ ...prev, visible: false }))} />
     </>
   );
 }

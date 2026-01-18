@@ -342,11 +342,16 @@ export default function Home() {
     setChatsData(prev => {
       const updated: Record<string, ChatData> = {};
       Object.entries(prev).forEach(([chatId, chat]) => {
+        // Find all blocks that are destinations of a connection
+        const childIds = new Set(chat.connections.map(c => c.to));
+        
         updated[chatId] = {
           ...chat,
-          blocks: chat.blocks.map(b => 
-            ({ ...b, isCollapsed: true })
-          ),
+          blocks: chat.blocks.map(b => ({
+            ...b,
+            isCollapsed: true, // Collapse the node itself (show small preview)
+            isHidden: childIds.has(b.id) // Hide if it is a child
+          })),
         };
       });
       return updated;

@@ -274,6 +274,8 @@ export default function CanvasPanel({
   const visibleBlocks = blocks.filter(b => !b.isHidden);
   const visibleBlockIds = new Set(visibleBlocks.map(b => b.id));
   const visibleConnections = connections.filter(c => visibleBlockIds.has(c.from) && visibleBlockIds.has(c.to));
+  
+  const areAllCollapsed = visibleBlocks.length > 0 && visibleBlocks.every(b => b.isCollapsed);
 
   return (
     <div className="canvas-panel">
@@ -298,11 +300,12 @@ export default function CanvasPanel({
             🔗
           </button>
           <button
-            className={`canvas-tool-btn ${currentTool === 'text' ? 'active' : ''}`}
-            onClick={() => onSetTool('text')}
-            title="Click canvas to add text"
+            className="canvas-tool-btn"
+            onClick={() => areAllCollapsed ? onExpandAll?.() : onCollapseAll?.()}
+            title={areAllCollapsed ? 'Expand all' : 'Collapse all'}
+            style={{ fontSize: '18px' }}
           >
-            T
+            {areAllCollapsed ? '⊞' : '⊟'}
           </button>
           <button
             className="canvas-tool-btn"

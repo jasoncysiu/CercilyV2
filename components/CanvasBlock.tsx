@@ -1,6 +1,7 @@
 'use client';
 
 import { Block, ConnectionPosition } from '@/lib/types';
+import ReactMarkdown from 'react-markdown';
 
 interface CanvasBlockProps {
   block: Block;
@@ -45,7 +46,7 @@ export default function CanvasBlock({
   return (
     <div
       id={block.id}
-      className={`canvas-block ${block.color} ${isSelected ? 'selected' : ''} ${isDropTarget ? 'drop-target' : ''} ${isDragging ? 'dragging' : ''}`}
+      className={`canvas-block ${block.color} ${block.type === 'table' ? 'table-block' : ''} ${isSelected ? 'selected' : ''} ${isDropTarget ? 'drop-target' : ''} ${isDragging ? 'dragging' : ''}`}
       style={{ left: block.x, top: block.y }}
       onMouseDown={onMouseDown}
     >
@@ -76,7 +77,7 @@ export default function CanvasBlock({
       
       {!isCollapsed && (
         <div 
-          className="block-content cursor-pointer hover:underline" 
+          className={`block-content ${block.type === 'table' ? 'table-mode' : ''} cursor-pointer hover:underline`} 
           onClick={(e) => {
             if (onNavigateSource && block.messageId) {
               e.stopPropagation();
@@ -85,7 +86,13 @@ export default function CanvasBlock({
           }}
           title={block.messageId ? "Click to jump to chat source" : undefined}
         >
-          {displayText}
+          {block.type === 'table' ? (
+            <div className="markdown-content">
+              <ReactMarkdown>{block.text}</ReactMarkdown>
+            </div>
+          ) : (
+            displayText
+          )}
         </div>
       )}
       

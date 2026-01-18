@@ -18,6 +18,7 @@ interface CanvasPanelProps {
   onUpdateBlock: (id: string, updates: Partial<Block>) => void;
   onDeleteBlock: (id: string) => void;
   onDeleteBlocks?: (ids: string[]) => void;
+  onConvertToTable?: (ids: string[]) => void;
   onSelectBlock: (id: string | null) => void;
 
   onAddConnection: (fromId: string, fromPos: ConnectionPosition, toId: string, toPos: ConnectionPosition) => void;
@@ -50,6 +51,7 @@ export default function CanvasPanel({
   onUpdateBlock,
   onDeleteBlock,
   onDeleteBlocks,
+  onConvertToTable,
   onSelectBlock,
 
   onAddConnection,
@@ -119,6 +121,7 @@ export default function CanvasPanel({
   }, []);
 
   const getConnPoint = useCallback((blockId: string, pos: ConnectionPosition) => {
+    if (typeof document === 'undefined') return { x: 0, y: 0 };
     const el = document.getElementById(blockId);
     // Use the transformed content wrapper as reference to get model-relative coordinates (scaled)
     const container = canvasContentRef.current; 
@@ -460,7 +463,7 @@ export default function CanvasPanel({
   return (
     <div className="canvas-panel">
       <div className="canvas-header">
-        <div className="canvas-title">Canvas <span style={{ fontSize: '12px', color: '#636366' }}>({visibleBlocks.length})</span></div>
+        <div className="canvas-title">Canva <span style={{ fontSize: '12px', color: '#636366' }}>({visibleBlocks.length})</span></div>
         <div className="canvas-tools">
           <button className={`canvas-tool-btn ${currentTool === 'text' ? 'active' : ''}`} onClick={() => onSetTool('text')} title="Text Tool (Click to add cards)">T</button>
           <button className={`canvas-tool-btn ${currentTool === 'select' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'select' ? 'text' : 'select')} title="Select & Move">↖</button>
@@ -483,7 +486,7 @@ export default function CanvasPanel({
         <div ref={canvasContentRef} className="canvas-transform-layer" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
 
           <svg className="connections-svg" style={{ overflow: 'visible' }}>
-            {visibleConnections.map((conn, i) => (
+            {mounted && visibleConnections.map((conn, i) => (
               <path key={i} className={`connection-line ${conn.color}`} d={renderConnectionPath(conn)} vectorEffect="non-scaling-stroke" onClick={(e) => { e.stopPropagation(); if (confirm('Delete this connection?')) onDeleteConnection?.(conn.from, conn.to); }} style={{ cursor: 'pointer', pointerEvents: 'auto' }} />
             ))}
             {isConnecting && connectingFrom && (
@@ -530,18 +533,11 @@ export default function CanvasPanel({
       {showOutline && (
         <OutlineView 
           blocks={blocks} 
-          connections={connections} 
-          onSelectBlock={(id) => {
-            onSelectBlock(id);
-            // Optional: Center on block
-            const el = document.getElementById(id);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-          }} 
-          onDeleteBlocks={(ids) => {
-            if (onDeleteBlocks) onDeleteBlocks(ids);
-            else ids.forEach(id => onDeleteBlock(id));
-          }}
-          onClose={() => onToggleOutline?.()} 
+          connections={connections}
+          onSelectBlock={onSelectBlock}
+          onDeleteBlocks={onDeleteBlocks || (() => {})}
+          onConvertToTable={onConvertToTable || (() => {})}
+          onClose={() => onToggleOutline?.()}
         />
 
       )}

@@ -14,6 +14,7 @@ export interface Block {
   parentId?: string;
   isCollapsed?: boolean;
   isHidden?: boolean;
+  type?: 'regular' | 'table';
 }
 
 export interface Connection {

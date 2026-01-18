@@ -30,11 +30,15 @@ export default function MainToolbar({
         </button>
         <div className="toolbar-brand">
           <span className="platform-name">Cercily</span>
+          <span className="title-separator">/</span>
+          <span className="chat-title">{chatTitle}</span>
         </div>
       </div>
       <div className="toolbar-right">
-        {availableModels.length > 0 && (
+        {availableModels && availableModels.length > 0 && (
           <Select value={activeChatModel} onValueChange={onSetActiveChatModel}>
+
+
             <SelectTrigger className="w-[180px] bg-[#3a3a3c] border-gray-700 text-white">
               <SelectValue placeholder="Select a model" />
             </SelectTrigger>

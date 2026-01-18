@@ -9,6 +9,7 @@ interface Model {
   name: string;
   displayName: string;
   description: string;
+  supportedGenerationMethods?: string[];
 }
 
 interface ModelSelectorProps {

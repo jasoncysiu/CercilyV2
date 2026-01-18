@@ -10,6 +10,7 @@ interface CanvasBlockProps {
   onEdit: (newText: string) => void;
   onConnectionPointMouseDown: (blockId: string, pos: ConnectionPosition, e: React.MouseEvent) => void;
   onNavigateSource?: () => void;
+  onToggle?: () => void;
 }
 
 export default function CanvasBlock({
@@ -20,8 +21,10 @@ export default function CanvasBlock({
   onEdit,
   onConnectionPointMouseDown,
   onNavigateSource,
+  onToggle,
 }: CanvasBlockProps) {
   const displayText = block.text.length > 120 ? block.text.slice(0, 120) + '...' : block.text;
+  const isCollapsed = block.isCollapsed;
 
   const handleEdit = () => {
     const newText = prompt('Edit:', block.text);
@@ -45,6 +48,14 @@ export default function CanvasBlock({
       <div className="block-header">
         <span className={`block-tag ${block.color}`}>{block.color}</span>
         <div className="block-actions">
+          <button 
+            className="block-action" 
+            onClick={(e) => { e.stopPropagation(); onToggle?.(); }} 
+            title={isCollapsed ? "Expand" : "Collapse"}
+          >
+            {isCollapsed ? '↕️' : '—'}
+          </button>
+          
           {onNavigateSource && block.messageId && (
             <button className="block-action" onClick={(e) => { e.stopPropagation(); onNavigateSource(); }} title="Go to source">
               🔗
@@ -58,18 +69,28 @@ export default function CanvasBlock({
           </button>
         </div>
       </div>
-      <div 
-        className="block-content cursor-pointer hover:underline" 
-        onClick={(e) => {
-          if (onNavigateSource && block.messageId) {
-            e.stopPropagation();
-            onNavigateSource();
-          }
-        }}
-        title={block.messageId ? "Click to jump to chat source" : undefined}
-      >
-        {displayText}
-      </div>
+      
+      {!isCollapsed && (
+        <div 
+          className="block-content cursor-pointer hover:underline" 
+          onClick={(e) => {
+            if (onNavigateSource && block.messageId) {
+              e.stopPropagation();
+              onNavigateSource();
+            }
+          }}
+          title={block.messageId ? "Click to jump to chat source" : undefined}
+        >
+          {displayText}
+        </div>
+      )}
+      
+      {isCollapsed && (
+         <div className="block-content collapsed-preview" style={{ fontSize: '10px', color: '#8e8e93' }}>
+           {block.text.slice(0, 20) + (block.text.length > 20 ? '...' : '')}
+         </div>
+      )}
+
       <div
         className="connection-point top"
         data-pos="top"

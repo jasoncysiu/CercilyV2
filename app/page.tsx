@@ -281,11 +281,57 @@ export default function Home() {
     setChatsData(prev => {
       const updated: Record<string, ChatData> = {};
       Object.entries(prev).forEach(([chatId, chat]) => {
+        // Find the block in this chat
+        const blockIndex = chat.blocks.findIndex(b => b.id === id);
+        if (blockIndex === -1) {
+          updated[chatId] = chat;
+          return;
+        }
+
+        // Deep copy blocks to safely mutate
+        const newBlocks = chat.blocks.map(b => ({ ...b }));
+        const blocksMap = new Map(newBlocks.map(b => [b.id, b]));
+        const currentBlock = blocksMap.get(id)!;
+        
+        const isNowCollapsed = !currentBlock.isCollapsed;
+        currentBlock.isCollapsed = isNowCollapsed;
+
+        const connections = chat.connections;
+        const getChildrenIds = (pid: string) => connections.filter(c => c.from === pid).map(c => c.to);
+
+        // Visited set to prevent infinite loops in cyclic graphs
+        const visited = new Set<string>();
+
+        const updateVisibility = (parentId: string, shouldHide: boolean) => {
+           if (visited.has(parentId)) return;
+           visited.add(parentId);
+
+           const childrenIds = getChildrenIds(parentId);
+           childrenIds.forEach(childId => {
+             const child = blocksMap.get(childId);
+             if (child) {
+               if (shouldHide) {
+                 // Hiding: Hide child and recursively hide its descendants
+                 child.isHidden = true;
+                 updateVisibility(childId, true);
+               } else {
+                 // Showing: Unhide child
+                 child.isHidden = false;
+                 // Only verify/show descendants if this child is NOT collapsed
+                 if (!child.isCollapsed) {
+                   updateVisibility(childId, false);
+                 }
+               }
+             }
+           });
+        };
+
+        // Start recursion from the toggled block
+        updateVisibility(id, isNowCollapsed);
+
         updated[chatId] = {
           ...chat,
-          blocks: chat.blocks.map(b => 
-            b.id === id ? { ...b, isCollapsed: !b.isCollapsed } : b
-          ),
+          blocks: newBlocks,
         };
       });
       return updated;
@@ -299,7 +345,7 @@ export default function Home() {
         updated[chatId] = {
           ...chat,
           blocks: chat.blocks.map(b => 
-            b.parentId ? { ...b, isCollapsed: true } : b
+            ({ ...b, isCollapsed: true })
           ),
         };
       });
@@ -314,7 +360,7 @@ export default function Home() {
         updated[chatId] = {
           ...chat,
           blocks: chat.blocks.map(b => 
-            ({ ...b, isCollapsed: false })
+            ({ ...b, isCollapsed: false, isHidden: false })
           ),
         };
       });
@@ -946,6 +992,7 @@ export default function Home() {
               onToggleCollapse={toggleCollapse}
               onCollapseAll={collapseAll}
               onExpandAll={expandAll}
+              onZoomChange={setZoom}
             />
           </div>
         </div>

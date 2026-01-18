@@ -13,6 +13,7 @@ export interface Block {
   endOffset?: number;
   parentId?: string;
   isCollapsed?: boolean;
+  isHidden?: boolean;
 }
 
 export interface Connection {

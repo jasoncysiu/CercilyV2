@@ -31,16 +31,8 @@ export async function GET() {
         outputTokenLimit: 8192,
         supportedGenerationMethods: ['generateContent'],
       },
-      {
-        name: 'models/gemini-1.5-pro',
-        displayName: 'Gemini 1.5 Pro',
-        description: 'Previous generation pro model',
-        inputTokenLimit: 1000000,
-        outputTokenLimit: 8192,
-        supportedGenerationMethods: ['generateContent'],
-      },
     ];
-    
+
     return NextResponse.json(modelNames);
   } catch (error) {
     console.error('Error listing Gemini models:', error);

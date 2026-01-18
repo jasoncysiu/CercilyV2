@@ -12,6 +12,7 @@ interface CanvasBlockProps {
   onNavigateSource?: () => void;
   onToggle?: () => void;
   isDropTarget?: boolean;
+  isDragging?: boolean;
 }
 
 export default function CanvasBlock({
@@ -24,6 +25,7 @@ export default function CanvasBlock({
   onNavigateSource,
   onToggle,
   isDropTarget,
+  isDragging,
 }: CanvasBlockProps) {
   const displayText = block.text.length > 120 ? block.text.slice(0, 120) + '...' : block.text;
   const isCollapsed = block.isCollapsed;
@@ -43,7 +45,7 @@ export default function CanvasBlock({
   return (
     <div
       id={block.id}
-      className={`canvas-block ${block.color} ${isSelected ? 'selected' : ''} ${isDropTarget ? 'drop-target' : ''}`}
+      className={`canvas-block ${block.color} ${isSelected ? 'selected' : ''} ${isDropTarget ? 'drop-target' : ''} ${isDragging ? 'dragging' : ''}`}
       style={{ left: block.x, top: block.y }}
       onMouseDown={onMouseDown}
     >

@@ -588,7 +588,7 @@ body {
   stroke: #636366;
   stroke-width: 2;
   fill: none;
-  transition: stroke-width 0.2s, opacity 0.2s;
+  transition: stroke-width 0.2s, opacity 0.2s, d 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .connection-line:hover {
@@ -636,7 +636,11 @@ body {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   border: 2px solid transparent;
   z-index: 2;
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.2s, left 0.4s cubic-bezier(0.16, 1, 0.3, 1), top 0.4s cubic-bezier(0.16, 1, 0.3, 1), height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.canvas-block.dragging {
+  transition: none !important;
 }
 
 .canvas-block:hover {

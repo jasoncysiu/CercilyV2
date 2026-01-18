@@ -11,6 +11,7 @@ interface CanvasBlockProps {
   onConnectionPointMouseDown: (blockId: string, pos: ConnectionPosition, e: React.MouseEvent) => void;
   onNavigateSource?: () => void;
   onToggle?: () => void;
+  isDropTarget?: boolean;
 }
 
 export default function CanvasBlock({
@@ -22,6 +23,7 @@ export default function CanvasBlock({
   onConnectionPointMouseDown,
   onNavigateSource,
   onToggle,
+  isDropTarget,
 }: CanvasBlockProps) {
   const displayText = block.text.length > 120 ? block.text.slice(0, 120) + '...' : block.text;
   const isCollapsed = block.isCollapsed;
@@ -41,7 +43,7 @@ export default function CanvasBlock({
   return (
     <div
       id={block.id}
-      className={`canvas-block ${block.color} ${isSelected ? 'selected' : ''}`}
+      className={`canvas-block ${block.color} ${isSelected ? 'selected' : ''} ${isDropTarget ? 'drop-target' : ''}`}
       style={{ left: block.x, top: block.y }}
       onMouseDown={onMouseDown}
     >

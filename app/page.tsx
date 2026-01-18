@@ -380,7 +380,7 @@ export default function Home() {
     toPos: ConnectionPosition
   ) => {
     const exists = connections.some(
-      c => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
+      c => c.from === fromId && c.to === toId
     );
     if (!exists) {
       const fromBlock = blocks.find(b => b.id === fromId);
@@ -395,6 +395,29 @@ export default function Home() {
       showToast('Connected!');
     }
   }, [blocks, connections, showToast, updateCurrentChatData]);
+
+  const deleteConnection = useCallback((fromId: string, toId: string) => {
+    updateCurrentChatData({
+      connections: connections.filter(c => !(c.from === fromId && c.to === toId))
+    });
+    showToast('Connection removed');
+  }, [connections, updateCurrentChatData, showToast]);
+
+  const mergeBlocks = useCallback((sourceId: string, targetId: string) => {
+    // We need to look in displayedBlocks which combines all chats in project
+    const sourceBlock = displayedBlocks.find(b => b.id === sourceId);
+    const targetBlock = displayedBlocks.find(b => b.id === targetId);
+    
+    if (sourceBlock && targetBlock && sourceId !== targetId) {
+      const mergedText = `${targetBlock.text}\n\n---\n\n${sourceBlock.text}`;
+      
+      // Update the target block and delete the source block
+      updateBlock(targetId, { text: mergedText });
+      deleteBlock(sourceId);
+      
+      showToast('Nodes merged successfully!');
+    }
+  }, [displayedBlocks, updateBlock, deleteBlock, showToast]);
 
   const clearCanvas = useCallback(() => {
     if (confirm('Clear canvas?')) {
@@ -990,6 +1013,7 @@ export default function Home() {
               onSelectBlock={setSelectedBlock}
               onBlockClick={handleBlockClickFromCanvas}
               onAddConnection={addConnection}
+              onDeleteConnection={deleteConnection}
               onClearCanvas={clearCanvas}
               onZoomIn={() => setZoom(z => Math.min(2, z + 0.1))}
               onZoomOut={() => setZoom(z => Math.max(0.5, z - 0.1))}
@@ -998,6 +1022,7 @@ export default function Home() {
               onCollapseAll={collapseAll}
               onExpandAll={expandAll}
               onZoomChange={setZoom}
+              onMergeBlocks={mergeBlocks}
             />
           </div>
         </div>

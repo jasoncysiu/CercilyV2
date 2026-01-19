@@ -1,3 +1,5 @@
+"use client";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -70,6 +72,7 @@ body {
   color: #e5e5e7;
   height: 100vh;
   overflow: hidden;
+  font-size: 15px; /* Increased from 14px */
 }
 
 ::-webkit-scrollbar {
@@ -89,7 +92,7 @@ body {
   display: flex;
   justify-content: space-between;
   padding: 8px 16px;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   font-weight: 600;
   background: #1a1a1a; /* Darker panel background */
 }
@@ -128,7 +131,7 @@ body {
   color: #8e8e93;
   cursor: pointer;
   border-radius: 6px;
-  font-size: 18px;
+  font-size: 19px; /* Increased from 18px */
   transition: all 0.2s;
 }
 
@@ -150,19 +153,19 @@ body {
 
 .platform-name {
   color: #0a84ff;
-  font-size: 16px;
+  font-size: 17px; /* Increased from 16px */
   font-weight: 700;
   letter-spacing: -0.5px;
 }
 
 .title-separator {
   color: #636366;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
 }
 
 .chat-title {
   color: #e5e5e7;
-  font-size: 16px;
+  font-size: 17px; /* Increased from 16px */
   font-weight: 600;
 }
 
@@ -172,7 +175,7 @@ body {
   color: white;
   padding: 6px 16px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   font-weight: 500;
   border: none;
   cursor: pointer;
@@ -204,7 +207,7 @@ body {
   border: 1px solid #333333; /* Darker border */
   border-radius: 8px;
   color: #e5e5e7;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
 }
 
 .new-project-btn {
@@ -214,7 +217,7 @@ body {
   color: white;
   border: none;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -267,7 +270,7 @@ body {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   color: #8e8e93;
   transition: all 0.2s;
   flex-shrink: 0;
@@ -288,7 +291,7 @@ body {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 17px; /* Increased from 16px */
   font-weight: bold;
   color: #8e8e93;
   transition: all 0.2s;
@@ -310,7 +313,7 @@ body {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   color: #8e8e93;
   transition: all 0.2s;
   flex-shrink: 0;
@@ -327,7 +330,7 @@ body {
   justify-content: center;
   width: 18px;
   height: 18px;
-  font-size: 12px;
+  font-size: 13px; /* Increased from 12px */
   color: #8e8e93;
   transition: transform 0.2s;
   margin-right: 6px;
@@ -338,7 +341,7 @@ body {
 }
 
 .project-title-text {
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   font-weight: 600;
   color: #e5e5e7;
 }
@@ -369,13 +372,13 @@ body {
 }
 
 .chat-item-title {
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   font-weight: 500;
   margin-bottom: 2px;
 }
 
 .chat-item-preview {
-  font-size: 11px;
+  font-size: 12px; /* Increased from 11px */
   color: #8e8e93;
 }
 
@@ -389,7 +392,7 @@ body {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px; /* Increased from 12px */
   color: #8e8e93;
   transition: all 0.2s;
   flex-shrink: 0;
@@ -419,8 +422,13 @@ body {
 }
 
 .chat-header-title {
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   font-weight: 600;
+}
+
+.chat-header span {
+  font-size: 12px; /* Increased from 11px */
+  color: #636366;
 }
 
 .chat-messages {
@@ -441,7 +449,7 @@ body {
 .message-bubble {
   padding: 12px 16px;
   border-radius: 16px;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   line-height: 1.5;
 }
 
@@ -481,7 +489,7 @@ body {
   background: transparent;
   border: none;
   color: #e5e5e7;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   resize: none;
   padding: 6px 0;
 }
@@ -498,7 +506,7 @@ body {
   border-radius: 50%;
   color: white;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
 }
 
 .send-btn:disabled {
@@ -529,7 +537,7 @@ body {
   border-radius: 8px;
   border: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   transition: all 0.2s;
 }
 
@@ -591,11 +599,16 @@ body {
 }
 
 .canvas-title {
-  font-size: 16px;
+  font-size: 17px; /* Increased from 16px */
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.canvas-title span {
+  font-size: 13px; /* Increased from 12px */
+  color: #636366;
 }
 
 .canvas-tools {
@@ -614,7 +627,7 @@ body {
   border-radius: 8px;
   color: #e5e5e7;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 17px; /* Increased from 16px */
   transition: all 0.2s;
 }
 
@@ -771,7 +784,7 @@ body {
 }
 
 .block-tag {
-  font-size: 10px;
+  font-size: 11px; /* Increased from 10px */
   padding: 2px 8px;
   border-radius: 4px;
   font-weight: 600;
@@ -832,9 +845,15 @@ body {
 }
 
 .block-content {
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   line-height: 1.5;
   color: #e5e5e7;
+}
+
+/* Collapsed preview font size */
+.block-content.collapsed-preview {
+  font-size: 11px; /* Increased from 10px */
+  color: #8e8e93;
 }
 
 /* Connection Points */
@@ -912,18 +931,18 @@ body {
   border-radius: 6px;
   color: #e5e5e7;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
 }
 
 .zoom-level {
-  font-size: 12px;
+  font-size: 13px; /* Increased from 12px */
   color: #8e8e93;
   min-width: 40px;
   text-align: center;
 }
 
 .canvas-stats {
-  font-size: 12px;
+  font-size: 13px; /* Increased from 12px */
   color: #636366;
 }
 
@@ -938,7 +957,7 @@ body {
   border: none;
   border-radius: 6px;
   color: #e5e5e7;
-  font-size: 12px;
+  font-size: 13px; /* Increased from 12px */
   cursor: pointer;
 }
 
@@ -953,7 +972,7 @@ body {
   padding: 12px 24px;
   border-radius: 10px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7); /* Enhanced shadow */
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   opacity: 0;
   transition: all 0.3s;
   z-index: 1000;
@@ -984,7 +1003,7 @@ body {
   border: 1px solid #333333; /* Darker border */
   border-radius: 8px;
   color: #e5e5e7;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   padding: 10px;
   resize: none;
   font-family: inherit;
@@ -1035,7 +1054,7 @@ body {
   padding: 8px;
   border: none;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1071,9 +1090,14 @@ body {
   left: 50%;
   transform: translate(-50%, -50%);
   color: #636366;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   pointer-events: none;
   text-align: center;
+}
+
+.click-hint span {
+  font-size: 13px; /* Increased from 12px */
+  opacity: 0.7;
 }
 
 .click-hint.hidden {
@@ -1137,6 +1161,7 @@ mark {
   display: flex;
   justify-content: center;
   align-items: center;
+  font-size: 15px; /* Increased from 14px */
   transition: background 0.2s;
 }
 
@@ -1159,16 +1184,19 @@ mark {
 
 .dialog-title {
   color: #e5e5e7;
+  font-size: 19px; /* Increased from 18px */
 }
 
 .dialog-description {
   color: #8e8e93;
+  font-size: 15px; /* Increased from 14px */
 }
 
 .select-trigger {
   background-color: #282828; /* Darker select trigger background */
   border-color: #333333; /* Darker border */
   color: #e5e5e7;
+  font-size: 15px; /* Increased from 14px */
 }
 
 .select-trigger:focus {
@@ -1184,6 +1212,7 @@ mark {
 
 .select-item {
   color: #e5e5e7;
+  font-size: 15px; /* Increased from 14px */
 }
 
 .select-item:hover, .select-item[data-highlighted] {
@@ -1208,6 +1237,7 @@ mark {
 
 .label {
   color: #e5e5e7;
+  font-size: 15px; /* Increased from 14px */
 }
 
 .scroll-area-viewport {
@@ -1256,7 +1286,7 @@ mark {
 }
 
 .drop-menu-title {
-  font-size: 11px;
+  font-size: 12px; /* Increased from 11px */
   color: #8e8e93;
   font-weight: 600;
   text-transform: uppercase;
@@ -1286,7 +1316,7 @@ mark {
 }
 
 .drop-menu-btn .icon {
-  font-size: 20px;
+  font-size: 21px; /* Increased from 20px */
   width: 32px;
   height: 32px;
   display: flex;
@@ -1302,12 +1332,12 @@ mark {
 }
 
 .drop-menu-btn .label strong {
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   font-weight: 600;
 }
 
 .drop-menu-btn .label span {
-  font-size: 11px;
+  font-size: 12px; /* Increased from 11px */
   color: #8e8e93;
 }
 
@@ -1328,7 +1358,7 @@ mark {
 .drop-menu-btn.cancel {
   margin-top: 8px;
   justify-content: center;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   color: #ff453a;
   padding: 8px;
 }
@@ -1394,6 +1424,7 @@ mark {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 17px; /* Increased from 16px */
   transition: all 0.2s;
 }
 
@@ -1419,13 +1450,14 @@ mark {
 .search-icon, .filter-icon {
   color: #636366;
   flex-shrink: 0;
+  font-size: 17px; /* Increased from 16px */
 }
 
 .search-input-wrapper input {
   background: transparent;
   border: none;
   color: #e5e5e7;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   width: 100%;
   outline: none;
 }
@@ -1459,10 +1491,10 @@ mark {
   background: rgba(255, 255, 255, 0.03); /* Slightly darker hover */
 }
 
-.outline-node.depth-0 { font-weight: 500; font-size: 13px; color: #8e8e93; text-transform: uppercase; }
-.outline-node.depth-1 { font-weight: 600; font-size: 14px; color: #e5e5e7; padding-left: 28px; }
-.outline-node.depth-2 { font-weight: 500; font-size: 14px; color: #e5e5e7; padding-left: 48px; }
-.outline-node.depth-3 { font-weight: 400; font-size: 13px; color: #aeaeb2; padding-left: 68px; }
+.outline-node.depth-0 { font-weight: 500; font-size: 14px; color: #8e8e93; text-transform: uppercase; } /* Increased from 13px */
+.outline-node.depth-1 { font-weight: 600; font-size: 15px; color: #e5e5e7; padding-left: 28px; } /* Increased from 14px */
+.outline-node.depth-2 { font-weight: 500; font-size: 15px; color: #e5e5e7; padding-left: 48px; } /* Increased from 14px */
+.outline-node.depth-3 { font-weight: 400; font-size: 14px; color: #aeaeb2; padding-left: 68px; } /* Increased from 13px */
 
 .node-content {
   display: flex;
@@ -1487,6 +1519,7 @@ mark {
   padding: 0;
   display: flex;
   align-items: center;
+  font-size: 15px; /* Increased from 14px */
 }
 
 .node-dot {
@@ -1505,6 +1538,7 @@ mark {
 .node-arrow {
   color: #48484a;
   flex-shrink: 0;
+  font-size: 15px; /* Increased from 14px */
 }
 
 .node-indicator {
@@ -1525,7 +1559,7 @@ mark {
   padding: 32px;
   text-align: center;
   color: #636366;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
 }
 
 .outline-footer {
@@ -1548,7 +1582,7 @@ mark {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px; /* Increased from 12px */
   padding: 4px;
   border-radius: 4px;
 }
@@ -1563,7 +1597,7 @@ mark {
   background: transparent;
   border: none;
   color: #e5e5e7;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   cursor: pointer;
   font-weight: 500;
 }
@@ -1670,7 +1704,7 @@ mark {
   color: #e5e5e7;
   padding: 8px 16px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -1745,7 +1779,7 @@ mark {
 
 .block-content.editing textarea {
   line-height: 1.6;
-  font-size: 15px;
+  font-size: 16px; /* Increased from 15px */
   color: #e5e5e7; /* Keep text color consistent */
   padding: 4px 0;
 }

@@ -70,11 +70,11 @@ export default function ModelSelector({ initialAvailableModels, onSelectAvailabl
 
   return (
     <div className="p-4">
-      <h3 className="text-lg font-semibold mb-4 text-white">Select Chat Models (Max 2)</h3>
+      <h3 className="text-xl font-semibold mb-4 text-white">Select Chat Models (Max 2)</h3>
       <ScrollArea className="h-[200px] w-full rounded-md border border-gray-700 p-4 bg-gray-800">
         <div className="grid gap-4">
           {allModels.length === 0 ? (
-            <p className="text-gray-400">No generative models found. Ensure your API key is valid.</p>
+            <p className="text-gray-400 text-base">No generative models found. Ensure your API key is valid.</p>
           ) : (
             allModels.map(model => (
               <div key={model.name} className="flex items-center space-x-2">
@@ -84,16 +84,16 @@ export default function ModelSelector({ initialAvailableModels, onSelectAvailabl
                   onCheckedChange={(checked) => handleCheckboxChange(model.name, checked as boolean)}
                   disabled={!selectedModels.includes(model.name) && selectedModels.length >= 2}
                 />
-                <Label htmlFor={model.name} className="text-white cursor-pointer">
-                  <span className="font-medium">{model.displayName}</span>
-                  <span className="text-gray-400 text-sm block">{model.description}</span>
+                <Label htmlFor={model.name} className="text-white cursor-pointer text-base">
+                  <span className="font-medium text-base">{model.displayName}</span>
+                  <span className="text-gray-400 text-base block">{model.description}</span>
                 </Label>
               </div>
             ))
           )}
         </div>
       </ScrollArea>
-      <p className="text-sm text-gray-500 mt-4">
+      <p className="text-base text-gray-500 mt-4">
         Selected: {selectedModels.length} / 2
       </p>
     </div>

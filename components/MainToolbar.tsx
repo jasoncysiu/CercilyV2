@@ -1,10 +1,11 @@
-"use client";
+'use client';
 
 import { Settings } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface MainToolbarProps {
   onToggleSidebar: () => void;
+  onNewChat: () => void;
   chatTitle: string;
   availableModels: string[];
   activeChatModel: string;
@@ -14,6 +15,7 @@ interface MainToolbarProps {
 
 export default function MainToolbar({
   onToggleSidebar,
+  onNewChat,
   chatTitle,
   availableModels,
   activeChatModel,
@@ -49,6 +51,7 @@ export default function MainToolbar({
             </SelectContent>
           </Select>
         )}
+        <button className="new-chat-btn" onClick={onNewChat}>+ New Chat</button>
         <button className="toolbar-btn" onClick={onOpenSettings} title="Settings">
           <Settings size={18} />
         </button>

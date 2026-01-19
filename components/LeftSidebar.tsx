@@ -10,14 +10,13 @@ interface LeftSidebarProps {
   onSelectProject: (projectId: string) => void;
   onDeleteChat: (chatId: string) => void;
   onNewProject: () => void;
-  onNewChat: () => void; // Added new prop for New Chat button
   onDeleteProject: (projectId: string) => void;
   onNewChatInProject: (projectId: string) => void;
   onRenameProject: (projectId: string, newTitle: string) => void;
   onRenameChat: (chatId: string, newTitle: string) => void;
 }
 
-export default function LeftSidebar({ projects, currentChatId, onSelectChat, onSelectProject, onDeleteChat, onNewProject, onNewChat, onDeleteProject, onNewChatInProject, onRenameProject, onRenameChat }: LeftSidebarProps) {
+export default function LeftSidebar({ projects, currentChatId, onSelectChat, onSelectProject, onDeleteChat, onNewProject, onDeleteProject, onNewChatInProject, onRenameProject, onRenameChat }: LeftSidebarProps) {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
     new Set(projects.map(p => p.id))
   );
@@ -57,9 +56,6 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
       </div>
       <button className="new-project-btn" onClick={onNewProject}>
         + New Project
-      </button>
-      <button className="new-chat-btn sidebar-new-chat-btn" onClick={onNewChat}>
-        + New Chat
       </button>
       <div className="project-list">
         {projects.map(project => (

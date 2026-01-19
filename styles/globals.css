@@ -9,7 +9,7 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-family: var(--font-poppins), sans-serif; /* Using Poppins font variable */
   background: #0a0a0a; /* Very dark background */
   background: radial-gradient(circle at center, #1a1a1a 0%, #0a0a0a 100%); /* Subtle radial gradient for depth */
   color: #e5e5e7;

@@ -2,6 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Regular */
+@font-face {
+    font-family: 'Aino';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/Regular/Aino-Regular.woff2') format('woff2'),
+         url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/Regular/Aino-Regular.woff') format('woff'),
+         url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/Regular/Aino-Regular.otf') format('opentype');
+}
+
+/* Bold */
+@font-face {
+    font-family: 'Aino';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/Bold/Aino-Bold.woff2') format('woff2'),
+         url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/Bold/Aino-Bold.woff') format('woff'),
+         url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/Bold/Aino-Bold.otf') format('opentype');
+}
+
+/* Italic */
+@font-face {
+    font-family: 'Aino';
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+    src: url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/Italic/Aino-Italic.woff2') format('woff2'),
+         url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/Italic/Aino-Italic.woff') format('woff'),
+         url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/Italic/Aino-Italic.otf') format('opentype');
+}
+
+/* Bold Italic */
+@font-face {
+    font-family: 'Aino';
+    font-style: italic;
+    font-weight: 700;
+    font-display: swap;
+    src: url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/BoldItalic/Aino-BoldItalic.woff2') format('woff2'),
+         url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/BoldItalic/Aino-BoldItalic.woff') format('woff'),
+         url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/BoldItalic/Aino-BoldItalic.otf') format('opentype');
+}
+
+/* Headline */
+@font-face {
+    font-family: 'Aino';
+    font-style: normal;
+    font-weight: 400; /* Adjust based on your design */
+    font-display: swap;
+    src: url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/Headline/Aino-Headline.woff2') format('woff2'),
+         url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/Headline/Aino-Headline.woff') format('woff'),
+         url('https://github.com/jasoncysiu/aino/raw/refs/heads/main/Headline/Aino-Headline.otf') format('opentype');
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -9,7 +64,7 @@
 }
 
 body {
-  font-family: var(--font-ibm-plex-sans), sans-serif; /* Using IBM Plex Sans font variable */
+  font-family: 'Aino', sans-serif; /* Using Aino font */
   background: #0a0a0a; /* Very dark background */
   background: radial-gradient(circle at center, #1a1a1a 0%, #0a0a0a 100%); /* Subtle radial gradient for depth */
   color: #e5e5e7;
@@ -702,7 +757,7 @@ body {
 }
 
 .canvas-block.green {
-  border-left: 4px solid #30d158;
+  border-left: 44px solid #30d158;
 }
 
 .canvas-block.orange {

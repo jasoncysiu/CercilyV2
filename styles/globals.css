@@ -89,7 +89,7 @@ body {
   display: flex;
   justify-content: space-between;
   padding: 8px 16px;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   font-weight: 600;
   background: #1a1a1a; /* Darker panel background */
 }
@@ -157,12 +157,12 @@ body {
 
 .title-separator {
   color: #636366;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
 }
 
 .chat-title {
   color: #e5e5e7;
-  font-size: 16px;
+  font-size: 17px; /* Increased from 16px */
   font-weight: 600;
 }
 
@@ -172,7 +172,7 @@ body {
   color: white;
   padding: 6px 16px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   font-weight: 500;
   border: none;
   cursor: pointer;
@@ -204,7 +204,7 @@ body {
   border: 1px solid #333333; /* Darker border */
   border-radius: 8px;
   color: #e5e5e7;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
 }
 
 .new-project-btn {
@@ -214,7 +214,7 @@ body {
   color: white;
   border: none;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -338,7 +338,7 @@ body {
 }
 
 .project-title-text {
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   font-weight: 600;
   color: #e5e5e7;
 }
@@ -369,13 +369,13 @@ body {
 }
 
 .chat-item-title {
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   font-weight: 500;
   margin-bottom: 2px;
 }
 
 .chat-item-preview {
-  font-size: 11px;
+  font-size: 12px; /* Increased from 11px */
   color: #8e8e93;
 }
 
@@ -419,7 +419,7 @@ body {
 }
 
 .chat-header-title {
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   font-weight: 600;
 }
 
@@ -441,7 +441,7 @@ body {
 .message-bubble {
   padding: 12px 16px;
   border-radius: 16px;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   line-height: 1.5;
 }
 
@@ -481,7 +481,7 @@ body {
   background: transparent;
   border: none;
   color: #e5e5e7;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   resize: none;
   padding: 6px 0;
 }
@@ -591,7 +591,7 @@ body {
 }
 
 .canvas-title {
-  font-size: 16px;
+  font-size: 17px; /* Increased from 16px */
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -832,7 +832,7 @@ body {
 }
 
 .block-content {
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   line-height: 1.5;
   color: #e5e5e7;
 }
@@ -916,14 +916,14 @@ body {
 }
 
 .zoom-level {
-  font-size: 12px;
+  font-size: 13px; /* Increased from 12px */
   color: #8e8e93;
   min-width: 40px;
   text-align: center;
 }
 
 .canvas-stats {
-  font-size: 12px;
+  font-size: 13px; /* Increased from 12px */
   color: #636366;
 }
 
@@ -938,7 +938,7 @@ body {
   border: none;
   border-radius: 6px;
   color: #e5e5e7;
-  font-size: 12px;
+  font-size: 13px; /* Increased from 12px */
   cursor: pointer;
 }
 
@@ -953,7 +953,7 @@ body {
   padding: 12px 24px;
   border-radius: 10px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7); /* Enhanced shadow */
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   opacity: 0;
   transition: all 0.3s;
   z-index: 1000;
@@ -984,7 +984,7 @@ body {
   border: 1px solid #333333; /* Darker border */
   border-radius: 8px;
   color: #e5e5e7;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   padding: 10px;
   resize: none;
   font-family: inherit;
@@ -1035,7 +1035,7 @@ body {
   padding: 8px;
   border: none;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1071,7 +1071,7 @@ body {
   left: 50%;
   transform: translate(-50%, -50%);
   color: #636366;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   pointer-events: none;
   text-align: center;
 }
@@ -1256,7 +1256,7 @@ mark {
 }
 
 .drop-menu-title {
-  font-size: 11px;
+  font-size: 12px; /* Increased from 11px */
   color: #8e8e93;
   font-weight: 600;
   text-transform: uppercase;
@@ -1302,12 +1302,12 @@ mark {
 }
 
 .drop-menu-btn .label strong {
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   font-weight: 600;
 }
 
 .drop-menu-btn .label span {
-  font-size: 11px;
+  font-size: 12px; /* Increased from 11px */
   color: #8e8e93;
 }
 
@@ -1328,7 +1328,7 @@ mark {
 .drop-menu-btn.cancel {
   margin-top: 8px;
   justify-content: center;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   color: #ff453a;
   padding: 8px;
 }
@@ -1425,7 +1425,7 @@ mark {
   background: transparent;
   border: none;
   color: #e5e5e7;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   width: 100%;
   outline: none;
 }
@@ -1459,10 +1459,10 @@ mark {
   background: rgba(255, 255, 255, 0.03); /* Slightly darker hover */
 }
 
-.outline-node.depth-0 { font-weight: 500; font-size: 13px; color: #8e8e93; text-transform: uppercase; }
-.outline-node.depth-1 { font-weight: 600; font-size: 14px; color: #e5e5e7; padding-left: 28px; }
-.outline-node.depth-2 { font-weight: 500; font-size: 14px; color: #e5e5e7; padding-left: 48px; }
-.outline-node.depth-3 { font-weight: 400; font-size: 13px; color: #aeaeb2; padding-left: 68px; }
+.outline-node.depth-0 { font-weight: 500; font-size: 14px; /* Increased from 13px */ color: #8e8e93; text-transform: uppercase; }
+.outline-node.depth-1 { font-weight: 600; font-size: 15px; /* Increased from 14px */ color: #e5e5e7; padding-left: 28px; }
+.outline-node.depth-2 { font-weight: 500; font-size: 15px; /* Increased from 14px */ color: #e5e5e7; padding-left: 48px; }
+.outline-node.depth-3 { font-weight: 400; font-size: 14px; /* Increased from 13px */ color: #aeaeb2; padding-left: 68px; }
 
 .node-content {
   display: flex;
@@ -1548,7 +1548,7 @@ mark {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px; /* Increased from 12px */
   padding: 4px;
   border-radius: 4px;
 }
@@ -1563,7 +1563,7 @@ mark {
   background: transparent;
   border: none;
   color: #e5e5e7;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   cursor: pointer;
   font-weight: 500;
 }
@@ -1670,7 +1670,7 @@ mark {
   color: #e5e5e7;
   padding: 8px 16px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 15px; /* Increased from 14px */
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -1745,7 +1745,7 @@ mark {
 
 .block-content.editing textarea {
   line-height: 1.6;
-  font-size: 15px;
+  font-size: 16px; /* Increased from 15px */
   color: #e5e5e7; /* Keep text color consistent */
   padding: 4px 0;
 }

@@ -208,7 +208,7 @@ body {
 }
 
 .new-project-btn {
-  margin: 8px 12px;
+  margin: 8px 12px 4px 12px; /* Added margin-bottom */
   padding: 8px 12px;
   background: #0a84ff;
   color: white;
@@ -223,6 +223,24 @@ body {
 
 .new-project-btn:hover {
   background: #0066cc;
+}
+
+.sidebar-new-chat-btn { /* Specific class for the new chat button in sidebar */
+  margin: 4px 12px 8px 12px; /* Adjusted margins */
+  padding: 8px 12px;
+  background: #282828; /* Darker background for new chat button */
+  color: #e5e5e7;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: calc(100% - 24px);
+}
+
+.sidebar-new-chat-btn:hover {
+  background: #38383a; /* Darker hover background */
 }
 
 .project-list {

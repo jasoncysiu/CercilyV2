@@ -1147,7 +1147,6 @@ export default function Home() {
     <>
       <MainToolbar
         onToggleSidebar={() => setSidebarVisible(prev => !prev)}
-        onNewChat={handleNewChat}
         chatTitle={currentChat.title}
         availableModels={availableModels}
         activeChatModel={activeChatModel}
@@ -1166,6 +1165,7 @@ export default function Home() {
             onSelectProject={handleSelectProject}
             onDeleteChat={handleDeleteChat}
             onNewProject={handleNewProject}
+            onNewChat={handleNewChat} {/* Pass handleNewChat to LeftSidebar */}
             onDeleteProject={handleDeleteProject}
             onNewChatInProject={handleNewChatInProject}
             onRenameProject={handleRenameProject}

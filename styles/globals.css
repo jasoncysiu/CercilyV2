@@ -9,7 +9,7 @@
 }
 
 body {
-  font-family: var(--font-poppins), sans-serif; /* Using Poppins font variable */
+  font-family: var(--font-ibm-plex-sans), sans-serif; /* Using IBM Plex Sans font variable */
   background: #0a0a0a; /* Very dark background */
   background: radial-gradient(circle at center, #1a1a1a 0%, #0a0a0a 100%); /* Subtle radial gradient for depth */
   color: #e5e5e7;

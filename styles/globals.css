@@ -400,6 +400,29 @@ body {
   color: #a2845d;
 }
 
+/* New style for chat-item-delete */
+.chat-item-delete {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #8e8e93; /* Default icon color */
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.chat-item-delete:hover {
+  background: #282828; /* Darker hover background */
+  color: #ff3b30; /* Red for delete action */
+}
+
+
 /* Chat View */
 .chat-view {
   width: 100%;
@@ -1022,6 +1045,26 @@ body {
 .new-block-colors button.selected {
   border-color: white;
   transform: scale(1.15);
+}
+
+.color-btn.yellow {
+  background: #ffd60a;
+}
+
+.color-btn.blue {
+  background: #0a84ff;
+}
+
+.color-btn.pink {
+  background: #ff375f;
+}
+
+.color-btn.green {
+  background: #30d158;
+}
+
+.color-btn.orange {
+  background: #ff9f0a;
 }
 
 .new-block-actions {
@@ -1653,10 +1696,10 @@ mark {
 .canva-context-menu {
   display: flex;
   background: #1a1a1a; /* Darker menu background */
+  border: 1px solid #333333; /* Darker border */
   border-radius: 12px;
   padding: 4px;
   box-shadow: 0 12px 50px rgba(0, 0, 0, 0.8); /* Enhanced shadow */
-  border: 1px solid #333333; /* Darker border */
   z-index: 3000;
   gap: 2px;
   align-items: center;

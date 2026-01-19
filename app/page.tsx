@@ -1229,10 +1229,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-      <Toast
-        message={toastMessage}
-        visible={toastVisible}
-      />
       <SelectionPopup
         visible={selectionPopup.visible}
         x={selectionPopup.x}

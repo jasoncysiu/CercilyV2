@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { Settings } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -29,7 +29,7 @@ export default function MainToolbar({
           ☰
         </button>
         <div className="toolbar-brand">
-          <span className="platform-name">Cercily</span>
+          <span className="platform-name">Poppin</span>
           <span className="title-separator">/</span>
           <span className="chat-title">{chatTitle}</span>
         </div>

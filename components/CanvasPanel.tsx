@@ -539,20 +539,20 @@ export default function CanvasPanel({
   return (
     <div className="canvas-panel">
       <div className="canvas-header">
-        <div className="canvas-title">Canva <span style={{ fontSize: '13px', color: '#636366' }}>({visibleBlocks.length})</span></div>
+        <div className="canvas-title">Canva <span style={{ fontSize: '12px', color: '#636366' }}>({visibleBlocks.length})</span></div>
         <div className="canvas-tools">
           <button className={`canvas-tool-btn ${currentTool === 'text' ? 'active' : ''}`} onClick={() => onSetTool('text')} title="Text Tool (Click to add cards)">T</button>
           <button className={`canvas-tool-btn ${currentTool === 'select' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'select' ? 'text' : 'select')} title="Select & Move">↖</button>
           <button className={`canvas-tool-btn ${currentTool === 'connect' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'connect' ? 'text' : 'connect')} title="Connect blocks">🔗</button>
-          <button className="canvas-tool-btn" onClick={() => { if (areAllCollapsed) onExpandAll?.(); else onCollapseAll?.(); onSetTool('select'); }} title={areAllCollapsed ? 'Expand all' : 'Collapse all'} style={{ fontSize: '19px' }}>{areAllCollapsed ? '⊞' : '⊟'}</button>
+          <button className="canvas-tool-btn" onClick={() => { if (areAllCollapsed) onExpandAll?.(); else onCollapseAll?.(); onSetTool('select'); }} title={areAllCollapsed ? 'Expand all' : 'Collapse all'} style={{ fontSize: '18px' }}>{areAllCollapsed ? '⊞' : '⊟'}</button>
           <button 
             className="canvas-tool-btn" 
             onClick={() => onRearrange?.(false)} 
             onDoubleClick={() => onRearrange?.(true)}
             title="Single click: Tidy | Double click: Tidy + Auto-flip dots" 
-            style={{ fontSize: '19px' }}
+            style={{ fontSize: '18px' }}
           >🪄</button>
-          <button className={`canvas-tool-btn ${showOutline ? 'active' : ''}`} onClick={onToggleOutline} title="Show Outline" style={{ fontSize: '19px' }}>📋</button>
+          <button className={`canvas-tool-btn ${showOutline ? 'active' : ''}`} onClick={onToggleOutline} title="Show Outline" style={{ fontSize: '18px' }}>📋</button>
 
           <button className="canvas-tool-btn" onClick={onClearCanvas} title="Clear canvas">🗑</button>
         </div>
@@ -581,7 +581,7 @@ export default function CanvasPanel({
           </svg>
           <div className="canvas-content">
             {visibleBlocks.length === 0 && currentTool === 'text' && (
-              <div className="click-hint">👆 Click anywhere to add a note<br /><span style={{ fontSize: '13px', opacity: 0.7 }}>or select text from chat</span></div>
+              <div className="click-hint">👆 Click anywhere to add a note<br /><span style={{ fontSize: '12px', opacity: 0.7 }}>or select text from chat</span></div>
             )}
             {visibleBlocks.map(block => (
               <CanvasBlock 

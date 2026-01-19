@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ProjectItem } from '@/lib/types';
+import { ChevronRight, ChevronDown, Edit, Plus, Trash2 } from 'lucide-react'; // Import Lucide icons
 
 interface LeftSidebarProps {
   projects: ProjectItem[];
@@ -55,7 +56,7 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
         <input type="text" className="search-box" placeholder="Search..." />
       </div>
       <button className="new-project-btn" onClick={onNewProject}>
-        + New Project
+        <Plus size={16} /> New Project
       </button>
       <div className="project-list">
         {projects.map(project => (
@@ -69,7 +70,7 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
                 }}
               >
                 <span className={`toggle-arrow ${expandedProjects.has(project.id) ? 'expanded' : ''}`}>
-                  ▶
+                  {expandedProjects.has(project.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </span>
                 <span className="project-title-text">{project.title}</span>
               </div>
@@ -79,14 +80,14 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
                 onClick={() => handleProjectRename(project.id, project.title)}
                 title="Rename project"
               >
-                ✎
+                <Edit size={14} />
               </button>
               <button
                 className="project-add-chat-btn"
                 aria-label={`Add chat to ${project.title}`}
                 onClick={() => onNewChatInProject(project.id)}
               >
-                +
+                <Plus size={14} />
               </button>
               <button
                 className="project-delete-btn"
@@ -97,7 +98,7 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
                   }
                 }}
               >
-                🗑️
+                <Trash2 size={14} />
               </button>
             </div>
             {expandedProjects.has(project.id) && (
@@ -121,7 +122,7 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
                       }}
                       title="Rename chat"
                     >
-                      ✎
+                      <Edit size={14} />
                     </button>
                     <button
                       aria-label={`Delete ${chat.title}`}
@@ -133,7 +134,7 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
                         }
                       }}
                     >
-                      🗑️
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 ))}

@@ -1,5 +1,6 @@
 'use client';
 
+import { Clipboard } from 'lucide-react'; // Import Lucide icon
 import { BlockColor } from '@/lib/types';
 
 interface SelectionPopupProps {
@@ -44,8 +45,8 @@ export default function SelectionPopup({
         />
       ))}
       <div className="popup-divider" />
-      <button className="action-btn" onClick={onCopyClick}>
-        📋
+      <button className="action-btn" onClick={onCopyClick} title="Copy to clipboard">
+        <Clipboard size={18} />
       </button>
     </div>
   );

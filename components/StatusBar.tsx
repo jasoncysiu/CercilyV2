@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Signal, Moon } from 'lucide-react'; // Import Lucide icons
 
 export default function StatusBar() {
   const [time, setTime] = useState('');
@@ -24,8 +25,8 @@ export default function StatusBar() {
         <span>{date}</span>
       </div>
       <div className="status-bar-right">
-        <span>📶</span>
-        <span>🌙</span>
+        <Signal size={16} />
+        <Moon size={16} />
         <span>42%</span>
       </div>
     </div>

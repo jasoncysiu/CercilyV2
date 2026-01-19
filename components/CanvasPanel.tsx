@@ -4,9 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Block, Connection, BlockColor, ToolType, ConnectionPosition } from '@/lib/types';
 import CanvasBlock from './CanvasBlock';
 import OutlineView from './OutlineView';
-// No lucide-react icons needed for the simplified menu
-
-
+import { Type, MousePointer2, Link, Maximize2, Minimize2, Sparkles, LayoutList, Trash2, Minus, Plus, Save } from 'lucide-react'; // Import Lucide icons
 
 interface CanvasPanelProps {
   blocks: Block[];
@@ -541,20 +539,25 @@ export default function CanvasPanel({
       <div className="canvas-header">
         <div className="canvas-title">Canva <span style={{ fontSize: '12px', color: '#636366' }}>({visibleBlocks.length})</span></div>
         <div className="canvas-tools">
-          <button className={`canvas-tool-btn ${currentTool === 'text' ? 'active' : ''}`} onClick={() => onSetTool('text')} title="Text Tool (Click to add cards)">T</button>
-          <button className={`canvas-tool-btn ${currentTool === 'select' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'select' ? 'text' : 'select')} title="Select & Move">↖</button>
-          <button className={`canvas-tool-btn ${currentTool === 'connect' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'connect' ? 'text' : 'connect')} title="Connect blocks">🔗</button>
-          <button className="canvas-tool-btn" onClick={() => { if (areAllCollapsed) onExpandAll?.(); else onCollapseAll?.(); onSetTool('select'); }} title={areAllCollapsed ? 'Expand all' : 'Collapse all'} style={{ fontSize: '18px' }}>{areAllCollapsed ? '⊞' : '⊟'}</button>
+          <button className={`canvas-tool-btn ${currentTool === 'text' ? 'active' : ''}`} onClick={() => onSetTool('text')} title="Text Tool (Click to add cards)"><Type size={18} /></button>
+          <button className={`canvas-tool-btn ${currentTool === 'select' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'select' ? 'text' : 'select')} title="Select & Move"><MousePointer2 size={18} /></button>
+          <button className={`canvas-tool-btn ${currentTool === 'connect' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'connect' ? 'text' : 'connect')} title="Connect blocks"><Link size={18} /></button>
+          <button 
+            className="canvas-tool-btn" 
+            onClick={() => { if (areAllCollapsed) onExpandAll?.(); else onCollapseAll?.(); onSetTool('select'); }} 
+            title={areAllCollapsed ? 'Expand all' : 'Collapse all'}
+          >
+            {areAllCollapsed ? <Maximize2 size={18} /> : <Minimize2 size={18} />}
+          </button>
           <button 
             className="canvas-tool-btn" 
             onClick={() => onRearrange?.(false)} 
             onDoubleClick={() => onRearrange?.(true)}
             title="Single click: Tidy | Double click: Tidy + Auto-flip dots" 
-            style={{ fontSize: '18px' }}
-          >🪄</button>
-          <button className={`canvas-tool-btn ${showOutline ? 'active' : ''}`} onClick={onToggleOutline} title="Show Outline" style={{ fontSize: '18px' }}>📋</button>
+          ><Sparkles size={18} /></button>
+          <button className={`canvas-tool-btn ${showOutline ? 'active' : ''}`} onClick={onToggleOutline} title="Show Outline"><LayoutList size={18} /></button>
 
-          <button className="canvas-tool-btn" onClick={onClearCanvas} title="Clear canvas">🗑</button>
+          <button className="canvas-tool-btn" onClick={onClearCanvas} title="Clear canvas"><Trash2 size={18} /></button>
         </div>
       </div>
 
@@ -706,12 +709,12 @@ export default function CanvasPanel({
 
       <div className="canvas-footer">
         <div className="zoom-controls">
-          <button className="zoom-btn" onClick={onZoomOut}>−</button>
+          <button className="zoom-btn" onClick={onZoomOut}><Minus size={16} /></button>
           <span className="zoom-level">{Math.round(zoom * 100)}%</span>
-          <button className="zoom-btn" onClick={onZoomIn}>+</button>
+          <button className="zoom-btn" onClick={onZoomIn}><Plus size={16} /></button>
         </div>
         <div className="canvas-stats">{visibleBlocks.length} blocks • {visibleConnections.length} connections</div>
-        <div className="export-btns"><button className="export-btn" onClick={onExport}>💾 Save</button></div>
+        <div className="export-btns"><button className="export-btn" onClick={onExport}><Save size={16} /> Save</button></div>
       </div>
       {showOutline && (
         <OutlineView 

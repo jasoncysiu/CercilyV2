@@ -1,6 +1,6 @@
 'use client';
 
-import { Settings } from 'lucide-react';
+import { Settings, Menu, Plus } from 'lucide-react'; // Import Lucide icons
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface MainToolbarProps {
@@ -25,8 +25,8 @@ export default function MainToolbar({
   return (
     <div className="main-toolbar">
       <div className="toolbar-left">
-        <button className="toolbar-btn" onClick={onToggleSidebar}>
-          ☰
+        <button className="toolbar-btn" onClick={onToggleSidebar} title="Toggle Sidebar">
+          <Menu size={18} />
         </button>
         <div className="toolbar-brand">
           <span className="platform-name">Cercily</span>
@@ -51,7 +51,9 @@ export default function MainToolbar({
             </SelectContent>
           </Select>
         )}
-        <button className="new-chat-btn" onClick={onNewChat}>+ New Chat</button>
+        <button className="new-chat-btn" onClick={onNewChat}>
+          <Plus size={16} /> New Chat
+        </button>
         <button className="toolbar-btn" onClick={onOpenSettings} title="Settings">
           <Settings size={18} />
         </button>

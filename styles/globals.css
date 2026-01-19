@@ -10,7 +10,8 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-  background: #1c1c1e;
+  background: #0a0a0a; /* Very dark background */
+  background: radial-gradient(circle at center, #1a1a1a 0%, #0a0a0a 100%); /* Subtle radial gradient for depth */
   color: #e5e5e7;
   height: 100vh;
   overflow: hidden;
@@ -35,7 +36,7 @@ body {
   padding: 8px 16px;
   font-size: 14px;
   font-weight: 600;
-  background: #2c2c2e;
+  background: #1a1a1a; /* Darker panel background */
 }
 
 .status-bar-left,
@@ -50,8 +51,8 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 8px 16px;
-  background: #2c2c2e;
-  border-bottom: 1px solid #3a3a3c;
+  background: #1a1a1a; /* Darker panel background */
+  border-bottom: 1px solid #333333; /* Darker border */
 }
 
 .toolbar-left,
@@ -77,7 +78,7 @@ body {
 }
 
 .toolbar-btn:hover {
-  background: #3a3a3c;
+  background: #282828; /* Darker hover background */
   color: #e5e5e7;
 }
 
@@ -130,22 +131,22 @@ body {
 /* Left Sidebar */
 .left-sidebar {
   width: 200px;
-  background: #2c2c2e;
+  background: #1a1a1a; /* Darker panel background */
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #3a3a3c;
+  border-right: 1px solid #333333; /* Darker border */
 }
 
 .sidebar-header {
   padding: 12px;
-  border-bottom: 1px solid #3a3a3c;
+  border-bottom: 1px solid #333333; /* Darker border */
 }
 
 .search-box {
   width: 100%;
   padding: 8px 12px;
-  background: #1c1c1e;
-  border: 1px solid #3a3a3c;
+  background: #0a0a0a; /* Darker input background */
+  border: 1px solid #333333; /* Darker border */
   border-radius: 8px;
   color: #e5e5e7;
   font-size: 13px;
@@ -198,7 +199,7 @@ body {
 }
 
 .project-title-toggle:hover {
-  background: #3a3a3c;
+  background: #282828; /* Darker hover background */
 }
 
 .project-delete-btn {
@@ -218,7 +219,7 @@ body {
 }
 
 .project-delete-btn:hover {
-  background: #3a3a3c;
+  background: #282828; /* Darker hover background */
   color: #ff3b30;
 }
 
@@ -240,7 +241,7 @@ body {
 }
 
 .project-add-chat-btn:hover {
-  background: #3a3a3c;
+  background: #282828; /* Darker hover background */
   color: #0a84ff;
 }
 
@@ -261,7 +262,7 @@ body {
 }
 
 .project-edit-btn:hover {
-  background: #3a3a3c;
+  background: #282828; /* Darker hover background */
   color: #a2845d;
 }
 
@@ -304,7 +305,7 @@ body {
 
 .chat-item:hover,
 .chat-item.active {
-  background: #3a3a3c;
+  background: #282828; /* Darker hover background */
 }
 
 .chat-item-content {
@@ -340,7 +341,7 @@ body {
 }
 
 .chat-item-edit:hover {
-  background: #3a3a3c;
+  background: #282828; /* Darker hover background */
   color: #a2845d;
 }
 
@@ -350,13 +351,13 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #1c1c1e;
-  border-right: 1px solid #3a3a3c;
+  background: #1a1a1a; /* Darker panel background */
+  border-right: 1px solid #333333; /* Darker border */
 }
 
 .chat-header {
   padding: 12px 16px;
-  border-bottom: 1px solid #3a3a3c;
+  border-bottom: 1px solid #333333; /* Darker border */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -396,7 +397,7 @@ body {
 }
 
 .message.assistant .message-bubble {
-  background: #2c2c2e;
+  background: #1a1a1a; /* Darker message bubble background */
   color: #e5e5e7;
   border-bottom-left-radius: 4px;
 }
@@ -408,13 +409,13 @@ body {
 /* Chat Input */
 .chat-input-container {
   padding: 12px 16px;
-  border-top: 1px solid #3a3a3c;
+  border-top: 1px solid #333333; /* Darker border */
 }
 
 .chat-input-wrapper {
   display: flex;
   align-items: flex-end;
-  background: #2c2c2e;
+  background: #1a1a1a; /* Darker input wrapper background */
   border-radius: 20px;
   padding: 6px 12px;
   gap: 10px;
@@ -446,20 +447,20 @@ body {
 }
 
 .send-btn:disabled {
-  background: #3a3a3c;
+  background: #282828; /* Darker disabled background */
   color: #636366;
 }
 
 /* Selection Popup */
 .selection-popup {
   position: fixed;
-  background: #2c2c2e;
+  background: #1a1a1a; /* Darker panel background */
   border-radius: 10px;
   padding: 8px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7); /* Enhanced shadow */
   display: none;
   z-index: 1000;
-  border: 1px solid #3a3a3c;
+  border: 1px solid #333333; /* Darker border */
 }
 
 .selection-popup.visible {
@@ -507,19 +508,19 @@ body {
 
 .popup-divider {
   width: 1px;
-  background: #3a3a3c;
+  background: #333333; /* Darker divider */
   margin: 4px 2px;
 }
 
 .selection-popup .action-btn {
-  background: #3a3a3c;
+  background: #282828; /* Darker action button background */
   color: #e5e5e7;
 }
 
 /* Canvas Panel */
 .canvas-panel {
   flex: 1;
-  background: #1a1a1c;
+  background: #0a0a0a; /* Darker canvas panel background */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -527,8 +528,8 @@ body {
 
 .canvas-header {
   padding: 12px 16px;
-  background: #2c2c2e;
-  border-bottom: 1px solid #3a3a3c;
+  background: #1a1a1a; /* Darker panel background */
+  border-bottom: 1px solid #333333; /* Darker border */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -553,7 +554,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #3a3a3c;
+  background: #282828; /* Darker tool button background */
   border: none;
   border-radius: 8px;
   color: #e5e5e7;
@@ -563,7 +564,7 @@ body {
 }
 
 .canvas-tool-btn:hover {
-  background: #48484a;
+  background: #38383a; /* Darker hover background */
 }
 
 .canvas-tool-btn.active {
@@ -575,7 +576,7 @@ body {
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: radial-gradient(circle at 1px 1px, #2a2a2c 1px, transparent 1px);
+  background: radial-gradient(circle at 1px 1px, #222222 1px, transparent 1px); /* Darker grid color */
   background-size: 24px 24px;
   cursor: crosshair;
 }
@@ -650,12 +651,12 @@ body {
 /* Canvas Block */
 .canvas-block {
   position: absolute;
-  background: #2c2c2e;
+  background: #1a1a1a; /* Darker block background */
   border-radius: 12px;
   padding: 14px 16px;
   cursor: move;
   user-select: none;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5); /* Enhanced shadow */
   border: 2px solid transparent;
   z-index: 2;
   transition: box-shadow 0.2s, left 0.4s cubic-bezier(0.16, 1, 0.3, 1), top 0.4s cubic-bezier(0.16, 1, 0.3, 1), height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -666,7 +667,7 @@ body {
 }
 
 .canvas-block:hover {
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); /* Enhanced shadow on hover */
 }
 
 .canvas-block.selected {
@@ -762,7 +763,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #3a3a3c;
+  background: #282828; /* Darker action button background */
   border: none;
   border-radius: 4px;
   color: #8e8e93;
@@ -771,7 +772,7 @@ body {
 }
 
 .block-action:hover {
-  background: #48484a;
+  background: #38383a; /* Darker hover background */
   color: #e5e5e7;
 }
 
@@ -786,7 +787,7 @@ body {
   position: absolute;
   width: 12px;
   height: 12px;
-  background: #3a3a3c;
+  background: #282828; /* Darker connection point background */
   border: 2px solid #636366;
   border-radius: 50%;
   cursor: crosshair;
@@ -832,8 +833,8 @@ body {
 /* Canvas Footer */
 .canvas-footer {
   padding: 10px 16px;
-  background: #2c2c2e;
-  border-top: 1px solid #3a3a3c;
+  background: #1a1a1a; /* Darker panel background */
+  border-top: 1px solid #333333; /* Darker border */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -851,7 +852,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #3a3a3c;
+  background: #282828; /* Darker zoom button background */
   border: none;
   border-radius: 6px;
   color: #e5e5e7;
@@ -878,7 +879,7 @@ body {
 
 .export-btn {
   padding: 6px 12px;
-  background: #3a3a3c;
+  background: #282828; /* Darker export button background */
   border: none;
   border-radius: 6px;
   color: #e5e5e7;
@@ -892,11 +893,11 @@ body {
   bottom: 80px;
   left: 50%;
   transform: translateX(-50%) translateY(100px);
-  background: #2c2c2e;
+  background: #1a1a1a; /* Darker toast background */
   color: #e5e5e7;
   padding: 12px 24px;
   border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7); /* Enhanced shadow */
   font-size: 14px;
   opacity: 0;
   transition: all 0.3s;
@@ -911,21 +912,21 @@ body {
 /* New Block Input */
 .new-block-input {
   position: absolute;
-  background: #2c2c2e;
+  background: #1a1a1a; /* Darker input background */
   border: 2px solid #0a84ff;
   border-radius: 12px;
   padding: 12px;
   min-width: 200px;
   max-width: 300px;
   z-index: 100;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 50px rgba(0, 0, 0, 0.8); /* Enhanced shadow */
 }
 
 .new-block-input textarea {
   width: 100%;
   min-height: 60px;
-  background: #1c1c1e;
-  border: 1px solid #3a3a3c;
+  background: #0a0a0a; /* Darker textarea background */
+  border: 1px solid #333333; /* Darker border */
   border-radius: 8px;
   color: #e5e5e7;
   font-size: 14px;
@@ -985,12 +986,12 @@ body {
 }
 
 .new-block-cancel {
-  background: #3a3a3c;
+  background: #282828; /* Darker cancel button background */
   color: #e5e5e7;
 }
 
 .new-block-cancel:hover {
-  background: #48484a;
+  background: #38383a; /* Darker hover background */
 }
 
 .new-block-create {
@@ -1003,7 +1004,7 @@ body {
 }
 
 .new-block-create:disabled {
-  background: #3a3a3c;
+  background: #282828; /* Darker disabled background */
   color: #636366;
   cursor: not-allowed;
 }
@@ -1059,12 +1060,12 @@ mark {
 /* Remove Highlight Popup */
 .remove-highlight-popup {
   position: fixed;
-  background: #2c2c2e;
+  background: #1a1a1a; /* Darker popup background */
   border-radius: 10px;
   padding: 8px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7); /* Enhanced shadow */
   z-index: 1000;
-  border: 1px solid #3a3a3c;
+  border: 1px solid #333333; /* Darker border */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1090,13 +1091,13 @@ mark {
 
 /* Shadcn UI overrides for dark theme */
 .dialog-content {
-  background-color: #2c2c2e;
-  border-color: #3a3a3c;
+  background-color: #1a1a1a; /* Darker dialog background */
+  border-color: #333333; /* Darker border */
   color: #e5e5e7;
 }
 
 .dialog-header {
-  border-bottom: 1px solid #3a3a3c;
+  border-bottom: 1px solid #333333; /* Darker border */
   padding-bottom: 1rem;
   margin-bottom: 1rem;
 }
@@ -1110,8 +1111,8 @@ mark {
 }
 
 .select-trigger {
-  background-color: #3a3a3c;
-  border-color: #3a3a3c;
+  background-color: #282828; /* Darker select trigger background */
+  border-color: #333333; /* Darker border */
   color: #e5e5e7;
 }
 
@@ -1121,8 +1122,8 @@ mark {
 }
 
 .select-content {
-  background-color: #2c2c2e;
-  border-color: #3a3a3c;
+  background-color: #1a1a1a; /* Darker select content background */
+  border-color: #333333; /* Darker border */
   color: #e5e5e7;
 }
 
@@ -1131,13 +1132,13 @@ mark {
 }
 
 .select-item:hover, .select-item[data-highlighted] {
-  background-color: #3a3a3c;
+  background-color: #282828; /* Darker select item hover background */
   color: #e5e5e7;
 }
 
 .checkbox {
   border-color: #636366;
-  background-color: #3a3a3c;
+  background-color: #282828; /* Darker checkbox background */
 }
 
 .checkbox[data-state="checked"] {
@@ -1155,7 +1156,7 @@ mark {
 }
 
 .scroll-area-viewport {
-  border-color: #3a3a3c;
+  border-color: #333333; /* Darker border */
 }
 
 .scroll-area-thumb {
@@ -1184,10 +1185,10 @@ mark {
 }
 /* Drop Action Menu */
 .drop-action-menu {
-  background: #2c2c2e;
-  border: 1px solid #3a3a3c;
+  background: #1a1a1a; /* Darker menu background */
+  border: 1px solid #333333; /* Darker border */
   border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 15px 60px rgba(0, 0, 0, 0.8); /* Enhanced shadow */
   padding: 8px;
   min-width: 280px;
   backdrop-filter: blur(10px);
@@ -1205,7 +1206,7 @@ mark {
   font-weight: 600;
   text-transform: uppercase;
   padding: 8px 12px;
-  border-bottom: 1px solid #3a3a3c;
+  border-bottom: 1px solid #333333; /* Darker border */
   margin-bottom: 8px;
 }
 
@@ -1236,7 +1237,7 @@ mark {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #3a3a3c;
+  background: #282828; /* Darker icon background */
   border-radius: 8px;
 }
 
@@ -1256,7 +1257,7 @@ mark {
 }
 
 .drop-menu-btn:hover {
-  background: #3a3a3c;
+  background: #282828; /* Darker hover background */
 }
 
 .drop-menu-btn.link:hover .icon {
@@ -1288,15 +1289,15 @@ mark {
   right: 16px;
   width: 320px;
   height: calc(100% - 140px);
-  background: rgba(44, 44, 46, 0.85);
+  background: rgba(26, 26, 26, 0.95); /* Darker, more opaque blur */
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid #333333; /* Darker border */
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   z-index: 1000;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 50px rgba(0, 0, 0, 0.8); /* Enhanced shadow */
   animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
 }
@@ -1308,7 +1309,7 @@ mark {
 
 .outline-header {
   padding: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid #333333; /* Darker border */
   cursor: grab;
 }
 
@@ -1342,7 +1343,7 @@ mark {
 }
 
 .header-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08); /* Slightly darker hover */
   color: #e5e5e7;
 }
 
@@ -1351,13 +1352,13 @@ mark {
 }
 
 .search-input-wrapper {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.3); /* Darker search input background */
   border-radius: 8px;
   display: flex;
   align-items: center;
   padding: 6px 10px;
   gap: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid #222222; /* Darker border */
 }
 
 .search-icon, .filter-icon {
@@ -1400,7 +1401,7 @@ mark {
 }
 
 .outline-node:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03); /* Slightly darker hover */
 }
 
 .outline-node.depth-0 { font-weight: 500; font-size: 13px; color: #8e8e93; text-transform: uppercase; }
@@ -1474,8 +1475,8 @@ mark {
 
 .outline-footer {
   padding: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.1);
+  border-top: 1px solid #333333; /* Darker border */
+  background: rgba(0, 0, 0, 0.2); /* Darker footer background */
 }
 
 .footer-tools {
@@ -1596,11 +1597,11 @@ mark {
 /* Canva Context Menu */
 .canva-context-menu {
   display: flex;
-  background: #2c2c2e;
+  background: #1a1a1a; /* Darker menu background */
   border-radius: 12px;
   padding: 4px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-  border: 1px solid #3a3a3c;
+  box-shadow: 0 12px 50px rgba(0, 0, 0, 0.8); /* Enhanced shadow */
+  border: 1px solid #333333; /* Darker border */
   z-index: 3000;
   gap: 2px;
   align-items: center;
@@ -1627,13 +1628,13 @@ mark {
 }
 
 .context-menu-btn:hover {
-  background: #3a3a3c;
+  background: #282828; /* Darker hover background */
 }
 
 .context-menu-divider {
   width: 1px;
   height: 24px;
-  background: #3a3a3c;
+  background: #333333; /* Darker divider */
   margin: 0 4px;
 }
 
@@ -1646,7 +1647,7 @@ mark {
   margin-left: -8px;
   border-width: 8px;
   border-style: solid;
-  border-color: #2c2c2e transparent transparent transparent;
+  border-color: #1a1a1a transparent transparent transparent; /* Match new background */
 }
 
 /* Card Resize Handle */
@@ -1682,7 +1683,7 @@ mark {
 /* Enhanced Editing Experience */
 .canvas-block.editing {
   z-index: 5000;
-  box-shadow: 0 0 0 4px rgba(116, 125, 255, 0.4), 0 12px 48px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 4px rgba(116, 125, 255, 0.5), 0 15px 60px rgba(0, 0, 0, 0.8); /* Enhanced shadow */
   border-color: #747dff !important;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1690,12 +1691,12 @@ mark {
 .block-content.editing textarea {
   line-height: 1.6;
   font-size: 15px;
-  color: #000000;
+  color: #e5e5e7; /* Keep text color consistent */
   padding: 4px 0;
 }
 
 .canvas-block.editing .block-header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid #333333; /* Darker border */
   margin-bottom: 12px;
   padding-bottom: 8px;
 }

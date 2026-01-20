@@ -710,6 +710,7 @@ export default function Home() {
   }, [selectionPopup.text, showToast]);
 
   const exportJson = useCallback(() => {
+    if (typeof document === 'undefined') return;
     const data = { blocks, connections, highlights };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');

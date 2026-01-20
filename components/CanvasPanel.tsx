@@ -138,6 +138,7 @@ export default function CanvasPanel({
   }, []);
 
   const getConnPoint = useCallback((blockId: string, pos: ConnectionPosition) => {
+    if (typeof document === 'undefined') return { x: 0, y: 0 };
     const el = document.getElementById(blockId);
     // Use the transformed content wrapper as reference to get model-relative coordinates (scaled)
     const container = canvasContentRef.current; 

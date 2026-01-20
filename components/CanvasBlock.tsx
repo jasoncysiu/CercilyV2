@@ -123,7 +123,7 @@ export default function CanvasBlock({
       )}
       
       {isCollapsed && (
-         <div className="block-content collapsed-preview" style={{ fontSize: '10px', color: '#8e8e93' }}>
+         <div className="block-content collapsed-preview" style={{ fontSize: '10px', opacity: 0.6 }}>
            {block.text.slice(0, 20) + (block.text.length > 20 ? '...' : '')}
          </div>
       )}

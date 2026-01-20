@@ -55,22 +55,22 @@ export default function ResizeHandle({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Vertical Divider Line */}
-      <div 
+      <div
         className={`absolute h-full w-[1px] transition-colors duration-200 ${
-          isDragging || isHovered ? 'bg-[#0a84ff]' : 'bg-[#2c2c2e]'
+          isDragging || isHovered ? 'bg-[#57C8C9]' : 'bg-gray-300 dark:bg-gray-700'
         }`}
       />
-      
+
       {/* Pill Handle Icon */}
-      <div 
+      <div
         className={`
-          absolute flex items-center justify-center 
-          w-5 h-8 rounded-full 
-          bg-[#1c1c1e] border shadow-sm 
+          absolute flex items-center justify-center
+          w-5 h-8 rounded-full
+          bg-white dark:bg-gray-800 border shadow-sm
           transition-all duration-200
-          ${isDragging || isHovered 
-            ? 'border-[#0a84ff] text-[#0a84ff] scale-110' 
-            : 'border-[#2c2c2e] text-[#636366]'
+          ${isDragging || isHovered
+            ? 'border-[#57C8C9] text-[#57C8C9] scale-110'
+            : 'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500'
           }
         `}
       >

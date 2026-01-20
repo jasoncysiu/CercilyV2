@@ -538,7 +538,7 @@ export default function CanvasPanel({
   return (
     <div className="canvas-panel">
       <div className="canvas-header">
-        <div className="canvas-title">Canva <span style={{ fontSize: '12px', color: '#636366' }}>({visibleBlocks.length})</span></div>
+        <div className="canvas-title">Canvas <span style={{ fontSize: '12px', opacity: 0.6 }}>({visibleBlocks.length})</span></div>
         <div className="canvas-tools">
           <button className={`canvas-tool-btn ${currentTool === 'text' ? 'active' : ''}`} onClick={() => onSetTool('text')} title="Text Tool (Click to add cards)"><Type size={18} /></button>
           <button className={`canvas-tool-btn ${currentTool === 'select' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'select' ? 'text' : 'select')} title="Select & Move"><MousePointer2 size={18} /></button>
@@ -585,7 +585,7 @@ export default function CanvasPanel({
           </svg>
           <div className="canvas-content">
             {visibleBlocks.length === 0 && currentTool === 'text' && (
-              <div className="click-hint">👆 Click anywhere to add a note<br /><span style={{ fontSize: '12px', opacity: 0.7 }}>or select text from chat</span></div>
+              <div className="click-hint">Click anywhere to add a note<br /><span style={{ fontSize: '12px', opacity: 0.7 }}>or select text from chat</span></div>
             )}
             {visibleBlocks.map(block => (
               <CanvasBlock 
@@ -619,7 +619,7 @@ export default function CanvasPanel({
                 <div className="drop-menu-title">Create relationship?</div>
                 <div className="drop-menu-options">
                   <button className="drop-menu-btn link" onClick={(e) => { e.stopPropagation(); onAddConnection(dropMenu.targetId, 'bottom', dropMenu.sourceId, 'top'); setDropMenu(null); setJustCompletedConnection(true); }}>
-                    <span className="icon">🔗</span>
+                    <span className="icon"><Link size={16} /></span>
                     <div className="label"><strong>Link as Child</strong><span>Establish a hierarchy connection</span></div>
                   </button>
                   <button className="drop-menu-btn cancel" onClick={(e) => { e.stopPropagation(); setDropMenu(null); }}>Cancel</button>

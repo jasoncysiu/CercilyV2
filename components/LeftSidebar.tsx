@@ -11,13 +11,14 @@ interface LeftSidebarProps {
   onSelectProject: (projectId: string) => void;
   onDeleteChat: (chatId: string) => void;
   onNewProject: () => void;
+  onNewChat: () => void;
   onDeleteProject: (projectId: string) => void;
   onNewChatInProject: (projectId: string) => void;
   onRenameProject: (projectId: string, newTitle: string) => void;
   onRenameChat: (chatId: string, newTitle: string) => void;
 }
 
-export default function LeftSidebar({ projects, currentChatId, onSelectChat, onSelectProject, onDeleteChat, onNewProject, onDeleteProject, onNewChatInProject, onRenameProject, onRenameChat }: LeftSidebarProps) {
+export default function LeftSidebar({ projects, currentChatId, onSelectChat, onSelectProject, onDeleteChat, onNewProject, onNewChat, onDeleteProject, onNewChatInProject, onRenameProject, onRenameChat }: LeftSidebarProps) {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
     new Set(projects.map(p => p.id))
   );
@@ -55,9 +56,14 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
       <div className="sidebar-header">
         <input type="text" className="search-box" placeholder="Search..." />
       </div>
-      <button className="new-project-btn" onClick={onNewProject}>
-        <Plus size={16} /> New Project
-      </button>
+      <div className="sidebar-actions">
+        <button className="new-project-btn" onClick={onNewProject}>
+          <Plus size={16} /> New Project
+        </button>
+        <button className="new-chat-btn" onClick={onNewChat}>
+          <Plus size={16} /> New Chat
+        </button>
+      </div>
       <div className="project-list">
         {projects.map(project => (
           <div className="project-group" key={project.id}>

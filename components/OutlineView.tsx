@@ -269,11 +269,11 @@ export default function OutlineView({ blocks, connections, onSelectBlock, onDele
 
 function getColorCode(color: BlockColor): string {
   switch (color) {
-    case 'yellow': return '#ffd60a';
-    case 'blue': return '#0a84ff';
-    case 'pink': return '#ff375f';
-    case 'green': return '#30d158';
-    case 'orange': return '#ff9f0a';
-    default: return '#8e8e93';
+    case 'yellow': return '#F59E0B';
+    case 'blue': return '#57C8C9';
+    case 'pink': return '#EC4899';
+    case 'green': return '#10B981';
+    case 'orange': return '#F97316';
+    default: return '#9898A8';
   }
 }

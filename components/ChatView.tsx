@@ -144,7 +144,7 @@ export default function ChatView({
     <div className="chat-view">
       <div className="chat-header">
         <span className="chat-header-title">Conversation</span>
-        <span style={{ fontSize: '11px', color: '#636366' }}>Select text → Canvas</span>
+        <span style={{ fontSize: '11px', opacity: 0.6 }}>Select text → Canvas</span>
       </div>
       <div className="chat-messages" ref={messagesRef} onMouseUp={handleMouseUp}>
         {messages.map(message => (

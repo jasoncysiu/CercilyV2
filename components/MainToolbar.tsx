@@ -1,21 +1,19 @@
 'use client';
 
-import { Settings, Menu, Plus } from 'lucide-react'; // Import Lucide icons
+import { Settings, Menu } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface MainToolbarProps {
   onToggleSidebar: () => void;
-  onNewChat: () => void;
   chatTitle: string;
   availableModels: string[];
   activeChatModel: string;
   onSetActiveChatModel: (modelName: string) => void;
-  onOpenSettings: () => void; // New prop for opening settings
+  onOpenSettings: () => void;
 }
 
 export default function MainToolbar({
   onToggleSidebar,
-  onNewChat,
   chatTitle,
   availableModels,
   activeChatModel,
@@ -51,9 +49,6 @@ export default function MainToolbar({
             </SelectContent>
           </Select>
         )}
-        <button className="new-chat-btn" onClick={onNewChat}>
-          <Plus size={16} /> New Chat
-        </button>
         <button className="toolbar-btn" onClick={onOpenSettings} title="Settings">
           <Settings size={18} />
         </button>

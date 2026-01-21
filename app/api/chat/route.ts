@@ -2,16 +2,17 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 import { Message } from '@/lib/types';
 
-// Ensure the API key is available
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
 export async function POST(req: Request) {
   try {
+    const { messages, modelName, apiKey, projectContext } = await req.json();
+
+    // Use provided API key or fall back to environment variable
+    const GEMINI_API_KEY = apiKey || process.env.GEMINI_API_KEY;
+
     if (!GEMINI_API_KEY) {
-      console.error('Server: GEMINI_API_KEY environment variable is not set. Please add it to your .env.local file. It should typically start with "sk-".');
       return NextResponse.json(
-        { error: 'GEMINI_API_KEY is not set. Please configure your environment variables in .env.local. Ensure it is a valid Gemini API key (usually starting with "sk-").' },
-        { status: 500 }
+        { error: 'No API key provided. Please add your Gemini API key in Settings.' },
+        { status: 400 }
       );
     }
 
@@ -21,12 +22,10 @@ export async function POST(req: Request) {
     } catch (initError) {
       console.error('Server: Error initializing GoogleGenerativeAI:', initError);
       return NextResponse.json(
-        { error: 'Failed to initialize AI client. Check GEMINI_API_KEY validity and format.', details: (initError as Error).message },
+        { error: 'Failed to initialize AI client. Check your API key validity.', details: (initError as Error).message },
         { status: 500 }
       );
     }
-
-    const { messages, modelName } = await req.json();
     console.log('Server: Received messages from client:', messages);
     console.log('Server: Using model:', modelName);
 
@@ -37,9 +36,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No model name provided.' }, { status: 400 });
     }
 
+    // Build system instruction with optional project context
+    let systemInstruction = "You are a helpful assistant. Provide all responses in strictly PLAIN TEXT only. Do NOT use any Markdown formatting, such as bold (**), italics (*), headers (#), or lists (- or *). Use only normal characters and line breaks. If you need to emphasize something, just use plain words.";
+
+    if (projectContext) {
+      systemInstruction += `\n\nProject Context (use this as background information for all responses):\n${projectContext}`;
+    }
+
     const model = genAI.getGenerativeModel({
       model: modelName,
-      systemInstruction: "You are a helpful assistant. Provide all responses in strictly PLAIN TEXT only. Do NOT use any Markdown formatting, such as bold (**), italics (*), headers (#), or lists (- or *). Use only normal characters and line breaks. If you need to emphasize something, just use plain words."
+      systemInstruction,
     });
 
     const lastUserMessageContent = messages[messages.length - 1].content;

@@ -2,14 +2,18 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Message, BlockColor, Highlight } from '@/lib/types';
+import { FileText } from 'lucide-react';
 
 interface ChatViewProps {
   messages: Message[];
   highlights: Highlight[];
   onTextSelection: (text: string, rect: DOMRect, messageId: string, startOffset: number, endOffset: number) => void;
   onHighlightClick: (highlightId: string, rect: DOMRect) => void;
-  onSendMessage: (content: string) => Promise<void>; // New prop for sending messages
-  isSendingMessage: boolean; // New prop for loading state
+  onSendMessage: (content: string) => Promise<void>;
+  isSendingMessage: boolean;
+  includeContext?: boolean;
+  onToggleContext?: () => void;
+  hasContext?: boolean;
 }
 
 export default function ChatView({
@@ -19,6 +23,9 @@ export default function ChatView({
   onHighlightClick,
   onSendMessage,
   isSendingMessage,
+  includeContext = true,
+  onToggleContext,
+  hasContext = false,
 }: ChatViewProps) {
   const [inputValue, setInputValue] = useState('');
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -165,6 +172,18 @@ export default function ChatView({
         )}
       </div>
       <div className="chat-input-container">
+        {hasContext && onToggleContext && (
+          <div className="chat-input-options">
+            <button
+              className={`context-toggle ${includeContext ? 'active' : ''}`}
+              onClick={onToggleContext}
+              title={includeContext ? 'Context included' : 'Context not included'}
+            >
+              <FileText size={14} />
+              <span>Context {includeContext ? 'On' : 'Off'}</span>
+            </button>
+          </div>
+        )}
         <div className="chat-input-wrapper">
           <textarea
             className="chat-input"

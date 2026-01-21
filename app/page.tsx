@@ -10,7 +10,14 @@ import Toast from '@/components/Toast';
 import RemoveHighlightPopup from '@/components/RemoveHighlightPopup';
 import SettingsPanel from '@/components/SettingsPanel';
 import ResizeHandle from '@/components/ResizeHandle';
+import ProjectContextModal from '@/components/ProjectContextModal';
 import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight, ChatData, Project, ProjectItem } from '@/lib/types';
+
+// Cache keys for localStorage
+const CACHE_KEY_PROJECTS = 'cercily-cache-projects';
+const CACHE_KEY_CHATS = 'cercily-cache-chats';
+const CACHE_KEY_TIMESTAMP = 'cercily-cache-timestamp';
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache validity
 
 const sleepProblemMessages: Message[] = [
   {
@@ -39,56 +46,261 @@ const sleepSolutionMessages: Message[] = [
 ];
 
 export default function Home() {
-  const [currentChatId, setCurrentChatId] = useState<string>('chat-1');
-  const [currentProjectId, setCurrentProjectId] = useState<string>('project-1');
+  const [currentChatId, setCurrentChatId] = useState<string>('');
+  const [currentProjectId, setCurrentProjectId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const [chatsData, setChatsData] = useState<Record<string, ChatData>>({
-    'chat-1': {
-      title: 'Sleep Problems',
-      preview: 'Social jetlag & screens...',
-      messages: sleepProblemMessages,
-      blocks: [
-        { id: 'b1', text: 'Late Night Scrolling (Blue Light)', color: 'blue', x: 100, y: 150 },
-        { id: 'b2', text: "Social Jetlag (Confused Brain)", color: 'orange', x: 450, y: 150 },
-      ],
-      connections: [
-        { from: 'b1', fromPos: 'right', to: 'b2', toPos: 'left', color: 'blue' },
-      ],
-      highlights: [],
-    },
-    'chat-2': {
-      title: 'Sleep Tips',
-      preview: '3-2-1 Rule & Morning Light',
-      messages: sleepSolutionMessages,
-      blocks: [
-        { id: 'b3', text: '3-2-1 Rule (No screens 1hr before)', color: 'green', x: 100, y: 350 },
-        { id: 'b4', text: 'Morning Sunlight (Resets clock)', color: 'yellow', x: 100, y: 500 },
-        { id: 'b5', text: 'Natural Deep Sleep', color: 'blue', x: 500, y: 425 },
-      ],
-      connections: [
-        { from: 'b3', fromPos: 'right', to: 'b5', toPos: 'left', color: 'green' },
-        { from: 'b4', fromPos: 'right', to: 'b5', toPos: 'left', color: 'yellow' },
-      ],
-      highlights: [],
-    },
-  });
+  const [chatsData, setChatsData] = useState<Record<string, ChatData>>({});
 
   // Projects map project id -> Project
-  const [projects, setProjects] = useState<Record<string, Project>>({
-    'project-1': {
-      id: 'project-1',
-      title: 'Sleep',
-      chatIds: ['chat-1', 'chat-2'],
-    },
-  });
+  const [projects, setProjects] = useState<Record<string, Project>>({});
 
+  // Track pending saves for debouncing
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingSaveRef = useRef<{ chatId: string; data: ChatData } | null>(null);
+
+  // Helper to save data to cache
+  const saveToCache = useCallback((projectsData: Record<string, Project>, chatsDataToCache: Record<string, ChatData>) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(CACHE_KEY_PROJECTS, JSON.stringify(projectsData));
+      localStorage.setItem(CACHE_KEY_CHATS, JSON.stringify(chatsDataToCache));
+      localStorage.setItem(CACHE_KEY_TIMESTAMP, Date.now().toString());
+    } catch (e) {
+      console.warn('Failed to save to cache:', e);
+    }
+  }, []);
+
+  // Helper to load data from cache
+  const loadFromCache = useCallback((): { projects: Record<string, Project>; chats: Record<string, ChatData>; isValid: boolean } | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const projectsStr = localStorage.getItem(CACHE_KEY_PROJECTS);
+      const chatsStr = localStorage.getItem(CACHE_KEY_CHATS);
+      const timestampStr = localStorage.getItem(CACHE_KEY_TIMESTAMP);
+
+      if (!projectsStr || !chatsStr || !timestampStr) return null;
+
+      const timestamp = parseInt(timestampStr, 10);
+      const isValid = Date.now() - timestamp < CACHE_TTL_MS;
+
+      return {
+        projects: JSON.parse(projectsStr),
+        chats: JSON.parse(chatsStr),
+        isValid,
+      };
+    } catch (e) {
+      console.warn('Failed to load from cache:', e);
+      return null;
+    }
+  }, []);
+
+  // Fetch data from Notion on mount (with cache)
+  useEffect(() => {
+    const fetchData = async () => {
+      // Try loading from cache first
+      const cached = loadFromCache();
+      if (cached && Object.keys(cached.projects).length > 0) {
+        // Use cached data immediately
+        setProjects(cached.projects);
+        setChatsData(cached.chats);
+
+        const firstProjectId = Object.keys(cached.projects)[0];
+        const firstChatId = cached.projects[firstProjectId]?.chatIds?.[0];
+        setCurrentProjectId(firstProjectId);
+        if (firstChatId) {
+          setCurrentChatId(firstChatId);
+        }
+        setIsLoading(false);
+
+        // If cache is still valid, skip Notion fetch
+        if (cached.isValid) {
+          console.log('Using valid cache, skipping Notion fetch');
+          return;
+        }
+
+        // Cache is stale, fetch from Notion in background
+        console.log('Cache stale, refreshing from Notion in background...');
+      }
+
+      try {
+        if (!cached) setIsLoading(true);
+
+        const [projectsRes, chatsRes] = await Promise.all([
+          fetch('/api/projects'),
+          fetch('/api/chats'),
+        ]);
+
+        if (!projectsRes.ok || !chatsRes.ok) {
+          throw new Error('Failed to fetch data from Notion');
+        }
+
+        const projectsData = await projectsRes.json();
+        const chatsDataFromApi = await chatsRes.json();
+
+        // If no projects exist, create a default one
+        if (Object.keys(projectsData).length === 0) {
+          const newProjectRes = await fetch('/api/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: 'Default Project' }),
+          });
+          const newProject = await newProjectRes.json();
+
+          // Create a default chat in the new project
+          const newChatRes = await fetch('/api/chats', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectId: newProject.id, title: 'New Chat' }),
+          });
+          const newChat = await newChatRes.json();
+
+          const newProjects = {
+            [newProject.id]: {
+              ...newProject,
+              chatIds: [newChat.id],
+            },
+          };
+          const newChats = {
+            [newChat.id]: newChat.chatData,
+          };
+
+          setProjects(newProjects);
+          setChatsData(newChats);
+          setCurrentProjectId(newProject.id);
+          setCurrentChatId(newChat.id);
+
+          // Save to cache
+          saveToCache(newProjects, newChats);
+        } else {
+          // Transform chats data to remove the extra fields
+          const transformedChats: Record<string, ChatData> = {};
+          Object.entries(chatsDataFromApi).forEach(([id, chat]: [string, any]) => {
+            transformedChats[id] = {
+              title: chat.title,
+              preview: chat.preview,
+              messages: chat.messages,
+              blocks: chat.blocks,
+              connections: chat.connections,
+              highlights: chat.highlights,
+            };
+          });
+
+          setProjects(projectsData);
+          setChatsData(transformedChats);
+
+          // Save to cache
+          saveToCache(projectsData, transformedChats);
+
+          // Set current project and chat to first available (only if not already set from cache)
+          if (!cached) {
+            const firstProjectId = Object.keys(projectsData)[0];
+            const firstChatId = projectsData[firstProjectId]?.chatIds?.[0];
+            setCurrentProjectId(firstProjectId);
+            if (firstChatId) {
+              setCurrentChatId(firstChatId);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching data from Notion:', error);
+        // Only show fallback if we don't have cached data
+        if (!cached) {
+          setChatsData({
+            'demo-chat-1': {
+              title: 'Demo Chat',
+              preview: 'Notion connection failed...',
+              messages: sleepProblemMessages,
+              blocks: [],
+              connections: [],
+              highlights: [],
+            },
+          });
+          setProjects({
+            'demo-project-1': {
+              id: 'demo-project-1',
+              title: 'Demo Project',
+              chatIds: ['demo-chat-1'],
+            },
+          });
+          setCurrentProjectId('demo-project-1');
+          setCurrentChatId('demo-chat-1');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [loadFromCache, saveToCache]);
+
+  // Auto-save chat data to Notion (debounced)
+  const saveToNotion = useCallback(async (chatId: string, data: ChatData) => {
+    if (chatId.startsWith('demo-')) return; // Skip demo data
+
+    try {
+      setIsSaving(true);
+      await fetch(`/api/chats/${chatId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    } catch (error) {
+      console.error('Error saving to Notion:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
+  // Keep cache in sync with state changes (debounced)
+  const cacheUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (isLoading) return;
+    if (Object.keys(projects).length === 0) return;
+
+    // Debounce cache updates to avoid excessive writes
+    if (cacheUpdateTimeoutRef.current) {
+      clearTimeout(cacheUpdateTimeoutRef.current);
+    }
+    cacheUpdateTimeoutRef.current = setTimeout(() => {
+      saveToCache(projects, chatsData);
+    }, 500);
+
+    return () => {
+      if (cacheUpdateTimeoutRef.current) {
+        clearTimeout(cacheUpdateTimeoutRef.current);
+      }
+    };
+  }, [projects, chatsData, isLoading, saveToCache]);
+
+  // Debounced save effect
+  useEffect(() => {
+    if (!currentChatId || !chatsData[currentChatId] || isLoading) return;
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout for debounced save
+    saveTimeoutRef.current = setTimeout(() => {
+      saveToNotion(currentChatId, chatsData[currentChatId]);
+    }, 1000); // Save 1 second after last change
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [currentChatId, chatsData, isLoading, saveToNotion]);
 
   // Derived state for the currently active chat
-  const currentChat = chatsData[currentChatId];
-  const messages = currentChat.messages;
-  const blocks = currentChat.blocks;
-  const connections = currentChat.connections;
-  const highlights = currentChat.highlights;
+  const currentChat = chatsData[currentChatId] || { title: '', preview: '', messages: [], blocks: [], connections: [], highlights: [] };
+  const messages = currentChat.messages || [];
+  const blocks = currentChat.blocks || [];
+  const connections = currentChat.connections || [];
+  const highlights = currentChat.highlights || [];
 
   // For the canvas we show all blocks/connections/highlights within the current project
   const projectChatIds = projects[currentProjectId]?.chatIds || [];
@@ -110,6 +322,13 @@ export default function Home() {
   const [availableModels, setAvailableModels] = useState<string[]>([]); // Initialize as empty
   const [activeChatModel, setActiveChatModel] = useState<string>(''); // Initialize as empty
   const [showOutline, setShowOutline] = useState(false);
+
+  // Project context modal state
+  const [contextModalOpen, setContextModalOpen] = useState(false);
+  const [contextModalProjectId, setContextModalProjectId] = useState<string>('');
+
+  // Toggle for including project context in chat
+  const [includeContext, setIncludeContext] = useState(true);
 
 
   const showToast = useCallback((message: string) => {
@@ -749,6 +968,16 @@ export default function Home() {
     updateCurrentChatData({ preview: content.trim().slice(0, 50) + '...' });
 
     try {
+      // Get API key from localStorage
+      const geminiApiKey = typeof window !== 'undefined'
+        ? localStorage.getItem('cercily-gemini-api-key')
+        : null;
+
+      // Get project context if toggle is on
+      const projectContext = includeContext
+        ? projects[currentProjectId]?.context
+        : undefined;
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -757,7 +986,9 @@ export default function Home() {
         // Send full history including the newly added user message for context
         body: JSON.stringify({
           messages: [...chatsData[currentChatId].messages, newUserMessage],
-          modelName: activeChatModel, // Send the active model name
+          modelName: activeChatModel,
+          apiKey: geminiApiKey,
+          projectContext,
         }),
       });
 
@@ -796,152 +1027,180 @@ export default function Home() {
     } finally {
       setIsSendingMessage(false);
     }
-  }, [currentChatId, isSendingMessage, showToast, updateCurrentChatData, chatsData, activeChatModel]);
+  }, [currentChatId, currentProjectId, isSendingMessage, showToast, updateCurrentChatData, chatsData, activeChatModel, includeContext, projects]);
 
-  const handleNewChat = useCallback(() => {
-    const newChatId = `chat-${Object.keys(chatsData).length + 1}`;
-    setChatsData(prev => ({
-      ...prev,
-      [newChatId]: {
-        title: `New Chat ${Object.keys(chatsData).length + 1}`,
-        preview: 'Empty chat...',
-        messages: [],
-        blocks: [],
-        connections: [],
-        highlights: [],
-      },
-    }));
-    setCurrentChatId(newChatId);
-    // Add new chat to the current project
-    setProjects(prev => ({
-      ...prev,
-      [currentProjectId]: {
-        ...prev[currentProjectId],
-        chatIds: [...prev[currentProjectId].chatIds, newChatId],
-      },
-    }));
-    setSelectedBlock(null); // Clear selected block when switching chats
-    setCurrentTool('text'); // Reset tool
-    setZoom(1); // Reset zoom
-    showToast('New chat created!');
+  const handleNewChat = useCallback(async () => {
+    try {
+      const response = await fetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: currentProjectId,
+          title: `New Chat ${Object.keys(chatsData).length + 1}`,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to create chat');
+
+      const { id: newChatId, chatData } = await response.json();
+
+      setChatsData(prev => ({
+        ...prev,
+        [newChatId]: chatData,
+      }));
+      setCurrentChatId(newChatId);
+      // Add new chat to the current project
+      setProjects(prev => ({
+        ...prev,
+        [currentProjectId]: {
+          ...prev[currentProjectId],
+          chatIds: [...prev[currentProjectId].chatIds, newChatId],
+        },
+      }));
+      setSelectedBlock(null);
+      setCurrentTool('text');
+      setZoom(1);
+      showToast('New chat created!');
+    } catch (error) {
+      console.error('Error creating chat:', error);
+      showToast('Failed to create chat');
+    }
   }, [chatsData, showToast, currentProjectId]);
 
-  const handleNewChatInProject = useCallback((projectId: string) => {
-    const newChatId = `chat-${Object.keys(chatsData).length + 1}`;
-    setChatsData(prev => ({
-      ...prev,
-      [newChatId]: {
-        title: `New Chat ${Object.keys(chatsData).length + 1}`,
-        preview: 'Empty chat...',
-        messages: [],
-        blocks: [],
-        connections: [],
-        highlights: [],
-      },
-    }));
-    
-    // Add new chat to the specified project
-    setProjects(prev => ({
-      ...prev,
-      [projectId]: {
-        ...prev[projectId],
-        chatIds: [...prev[projectId].chatIds, newChatId],
-      },
-    }));
-    
-    // Switch to the new chat
-    setCurrentChatId(newChatId);
-    setSelectedBlock(null);
-    setCurrentTool('text');
-    setZoom(1);
-    showToast('New chat created!');
+  const handleNewChatInProject = useCallback(async (projectId: string) => {
+    try {
+      const response = await fetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          title: `New Chat ${Object.keys(chatsData).length + 1}`,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to create chat');
+
+      const { id: newChatId, chatData } = await response.json();
+
+      setChatsData(prev => ({
+        ...prev,
+        [newChatId]: chatData,
+      }));
+
+      // Add new chat to the specified project
+      setProjects(prev => ({
+        ...prev,
+        [projectId]: {
+          ...prev[projectId],
+          chatIds: [...prev[projectId].chatIds, newChatId],
+        },
+      }));
+
+      // Switch to the new chat
+      setCurrentChatId(newChatId);
+      setSelectedBlock(null);
+      setCurrentTool('text');
+      setZoom(1);
+      showToast('New chat created!');
+    } catch (error) {
+      console.error('Error creating chat:', error);
+      showToast('Failed to create chat');
+    }
   }, [chatsData, showToast]);
 
-  const handleNewProject = useCallback(() => {
-    const newProjectId = `project-${Object.keys(projects).length + 1}`;
-    const newChatId = `chat-${Object.keys(chatsData).length + 1}`;
-    
-    // Create new chat for the project
-    setChatsData(prev => ({
-      ...prev,
-      [newChatId]: {
-        title: `New Chat 1`,
-        preview: 'Empty chat...',
-        messages: [],
-        blocks: [],
-        connections: [],
-        highlights: [],
-      },
-    }));
-    
-    // Create new project with the chat
-    setProjects(prev => ({
-      ...prev,
-      [newProjectId]: {
-        id: newProjectId,
-        title: `New Project ${Object.keys(projects).length}`,
-        chatIds: [newChatId],
-      },
-    }));
-    
-    // Switch to the new project and chat
-    setCurrentProjectId(newProjectId);
-    setCurrentChatId(newChatId);
-    setSelectedBlock(null);
-    setCurrentTool('text');
-    setZoom(1);
-    showToast('New project created!');
-  }, [projects, chatsData, showToast]);
+  const handleNewProject = useCallback(async () => {
+    try {
+      // Create new project
+      const projectRes = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: `New Project ${Object.keys(projects).length + 1}` }),
+      });
 
-  const handleDeleteProject = useCallback((projectId: string) => {
-    setProjects(prev => {
-      const { [projectId]: _removed, ...rest } = prev;
+      if (!projectRes.ok) throw new Error('Failed to create project');
+      const newProject = await projectRes.json();
 
-      // If no projects remain, create a default one
-      if (Object.keys(rest).length === 0) {
-        const newProjectId = 'project-1';
-        const newChatId = 'chat-default';
-        
-        // Create new default chat
-        setChatsData(prevChats => ({
-          ...prevChats,
-          [newChatId]: {
-            title: 'New Chat 1',
-            preview: 'Empty chat...',
-            messages: [],
-            blocks: [],
-            connections: [],
-            highlights: [],
-          },
-        }));
+      // Create new chat for the project
+      const chatRes = await fetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: newProject.id, title: 'New Chat 1' }),
+      });
 
-        // Set current project and chat to the new defaults
-        setCurrentProjectId(newProjectId);
-        setCurrentChatId(newChatId);
+      if (!chatRes.ok) throw new Error('Failed to create chat');
+      const { id: newChatId, chatData } = await chatRes.json();
 
-        return {
-          [newProjectId]: {
-            id: newProjectId,
-            title: 'Default Project',
-            chatIds: [newChatId],
-          },
-        };
-      }
+      setChatsData(prev => ({
+        ...prev,
+        [newChatId]: chatData,
+      }));
 
-      // If the deleted project was active, switch to the first remaining project
-      if (projectId === currentProjectId) {
-        const firstProjectId = Object.keys(rest)[0];
-        const firstChatId = rest[firstProjectId]?.chatIds[0];
-        setCurrentProjectId(firstProjectId);
-        if (firstChatId) {
-          setCurrentChatId(firstChatId);
+      // Create new project with the chat
+      setProjects(prev => ({
+        ...prev,
+        [newProject.id]: {
+          ...newProject,
+          chatIds: [newChatId],
+        },
+      }));
+
+      // Switch to the new project and chat
+      setCurrentProjectId(newProject.id);
+      setCurrentChatId(newChatId);
+      setSelectedBlock(null);
+      setCurrentTool('text');
+      setZoom(1);
+      showToast('New project created!');
+    } catch (error) {
+      console.error('Error creating project:', error);
+      showToast('Failed to create project');
+    }
+  }, [projects, showToast]);
+
+  const handleDeleteProject = useCallback(async (projectId: string) => {
+    try {
+      // Delete from Notion
+      await fetch(`/api/projects/${projectId}`, { method: 'DELETE' });
+
+      setProjects(prev => {
+        const { [projectId]: removed, ...rest } = prev;
+
+        // Remove chats belonging to this project from chatsData
+        if (removed) {
+          setChatsData(prevChats => {
+            const updated = { ...prevChats };
+            removed.chatIds.forEach(chatId => {
+              delete updated[chatId];
+            });
+            return updated;
+          });
         }
-      }
 
-      return rest;
-    });
+        // If no projects remain, create a default one
+        if (Object.keys(rest).length === 0) {
+          // This will trigger a re-fetch which will create a new default project
+          window.location.reload();
+          return rest;
+        }
 
-    showToast('Project deleted');
+        // If the deleted project was active, switch to the first remaining project
+        if (projectId === currentProjectId) {
+          const firstProjectId = Object.keys(rest)[0];
+          const firstChatId = rest[firstProjectId]?.chatIds[0];
+          setCurrentProjectId(firstProjectId);
+          if (firstChatId) {
+            setCurrentChatId(firstChatId);
+          }
+        }
+
+        return rest;
+      });
+
+      showToast('Project deleted');
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      showToast('Failed to delete project');
+    }
   }, [currentProjectId, showToast]);
 
   const handleSelectChat = useCallback((chatId: string) => {
@@ -1045,75 +1304,122 @@ export default function Home() {
     }
   }, [projects]);
 
-  const handleRenameProject = useCallback((projectId: string, newTitle: string) => {
+  const handleRenameProject = useCallback(async (projectId: string, newTitle: string) => {
     if (newTitle.trim()) {
+      try {
+        await fetch(`/api/projects/${projectId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTitle.trim() }),
+        });
+
+        setProjects(prev => ({
+          ...prev,
+          [projectId]: {
+            ...prev[projectId],
+            title: newTitle.trim(),
+          },
+        }));
+        showToast('Project renamed!');
+      } catch (error) {
+        console.error('Error renaming project:', error);
+        showToast('Failed to rename project');
+      }
+    }
+  }, [showToast]);
+
+  const handleRenameChat = useCallback(async (chatId: string, newTitle: string) => {
+    if (newTitle.trim()) {
+      try {
+        await fetch(`/api/chats/${chatId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTitle.trim() }),
+        });
+
+        setChatsData(prev => ({
+          ...prev,
+          [chatId]: {
+            ...prev[chatId],
+            title: newTitle.trim(),
+          },
+        }));
+        showToast('Chat renamed!');
+      } catch (error) {
+        console.error('Error renaming chat:', error);
+        showToast('Failed to rename chat');
+      }
+    }
+  }, [showToast]);
+
+  const handleOpenProjectContext = useCallback((projectId: string) => {
+    setContextModalProjectId(projectId);
+    setContextModalOpen(true);
+  }, []);
+
+  const handleSaveProjectContext = useCallback(async (projectId: string, context: string) => {
+    try {
+      await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context }),
+      });
+
       setProjects(prev => ({
         ...prev,
         [projectId]: {
           ...prev[projectId],
-          title: newTitle.trim(),
+          context,
         },
       }));
-      showToast('Project renamed!');
+      showToast('Project context saved!');
+    } catch (error) {
+      console.error('Error saving project context:', error);
+      showToast('Failed to save context');
     }
   }, [showToast]);
 
-  const handleRenameChat = useCallback((chatId: string, newTitle: string) => {
-    if (newTitle.trim()) {
-      setChatsData(prev => ({
-        ...prev,
-        [chatId]: {
-          ...prev[chatId],
-          title: newTitle.trim(),
-        },
-      }));
-      showToast('Chat renamed!');
-    }
-  }, [showToast]);
+  const handleDeleteChat = useCallback(async (chatId: string) => {
+    try {
+      // Delete from Notion
+      await fetch(`/api/chats/${chatId}`, { method: 'DELETE' });
 
-  const handleDeleteChat = useCallback((chatId: string) => {
-    setChatsData(prev => {
-      const { [chatId]: _removed, ...rest } = prev;
+      setChatsData(prev => {
+        const { [chatId]: _removed, ...rest } = prev;
 
-      // If no chats remain, create a fresh one
-      if (Object.keys(rest).length === 0) {
-        const newId = 'chat-1';
-        const newChats: Record<string, ChatData> = {
-          [newId]: {
-            title: 'New Chat 1',
-            preview: 'Empty chat...',
-            messages: [],
-            blocks: [],
-            connections: [],
-            highlights: [],
-          },
-        };
-        setCurrentChatId(newId);
-        return newChats;
-      }
+        // If no chats remain in the project, create a fresh one
+        const currentProjectChatIds = projects[currentProjectId]?.chatIds.filter(id => id !== chatId) || [];
+        if (currentProjectChatIds.length === 0) {
+          // Will need to create a new chat - handled below
+        }
 
-      // If the deleted chat was active, switch to the first remaining chat
-      if (chatId === currentChatId) {
-        const firstId = Object.keys(rest)[0];
-        setCurrentChatId(firstId);
-      }
+        // If the deleted chat was active, switch to the first remaining chat
+        if (chatId === currentChatId) {
+          const firstId = Object.keys(rest)[0];
+          if (firstId) {
+            setCurrentChatId(firstId);
+          }
+        }
 
-      return rest;
-    });
-
-    // Also remove the chat from any project that contains it
-    setProjects(prev => {
-      const updated: Record<string, Project> = {};
-      Object.entries(prev).forEach(([pid, p]) => {
-        updated[pid] = { ...p, chatIds: p.chatIds.filter(id => id !== chatId) };
+        return rest;
       });
 
-      // If current project no longer has chats, keep it but leave empty
-      return updated;
-    });
+      // Also remove the chat from any project that contains it
+      setProjects(prev => {
+        const updated: Record<string, Project> = {};
+        Object.entries(prev).forEach(([pid, p]) => {
+          updated[pid] = { ...p, chatIds: p.chatIds.filter(id => id !== chatId) };
+        });
 
-    showToast('Chat deleted');
-  }, [currentChatId, showToast]);
+        return updated;
+      });
+
+      showToast('Chat deleted');
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+      showToast('Failed to delete chat');
+    }
+  }, [currentChatId, currentProjectId, projects, showToast]);
 
   // Hide popups on click outside
   useEffect(() => {
@@ -1136,6 +1442,7 @@ export default function Home() {
   const projectItems: ProjectItem[] = Object.values(projects).map(p => ({
     id: p.id,
     title: p.title,
+    context: p.context,
     chats: p.chatIds.map(id => ({
       id,
       title: chatsData[id]?.title || 'Untitled',
@@ -1143,6 +1450,36 @@ export default function Home() {
       active: id === currentChatId,
     })),
   }));
+
+  // Show loading screen while fetching data
+  if (isLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        flexDirection: 'column',
+        gap: '16px',
+        color: 'var(--text-secondary)',
+      }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          border: '3px solid var(--border-color)',
+          borderTopColor: 'var(--accent-color)',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+        }} />
+        <p>Loading from Notion...</p>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -1152,10 +1489,7 @@ export default function Home() {
         availableModels={availableModels}
         activeChatModel={activeChatModel}
         onSetActiveChatModel={setActiveChatModel}
-        onOpenSettings={() => {
-          console.log('Settings button clicked! showSettingsPanel will be set to true.');
-          setShowSettingsPanel(true);
-        }}
+        onOpenSettings={() => setShowSettingsPanel(true)}
       />
       <div className="main-content">
         {sidebarVisible && (
@@ -1171,6 +1505,7 @@ export default function Home() {
             onNewChatInProject={handleNewChatInProject}
             onRenameProject={handleRenameProject}
             onRenameChat={handleRenameChat}
+            onOpenProjectContext={handleOpenProjectContext}
           />
         )}
         <div className="panes-container">
@@ -1183,6 +1518,9 @@ export default function Home() {
               onHighlightClick={handleHighlightClick}
               onSendMessage={handleSendMessage}
               isSendingMessage={isSendingMessage}
+              includeContext={includeContext}
+              onToggleContext={() => setIncludeContext(prev => !prev)}
+              hasContext={!!projects[currentProjectId]?.context}
             />
           </div>
           <ResizeHandle
@@ -1249,6 +1587,20 @@ export default function Home() {
           }
         }}
         onClose={() => setRemoveHighlightPopup(prev => ({ ...prev, visible: false }))} />
+      <SettingsPanel
+        isOpen={showSettingsPanel}
+        onClose={() => setShowSettingsPanel(false)}
+        availableModels={availableModels}
+        onSelectAvailableModels={setAvailableModels}
+      />
+      <ProjectContextModal
+        isOpen={contextModalOpen}
+        onClose={() => setContextModalOpen(false)}
+        projectId={contextModalProjectId}
+        projectTitle={projects[contextModalProjectId]?.title || ''}
+        initialContext={projects[contextModalProjectId]?.context || ''}
+        onSave={handleSaveProjectContext}
+      />
     </>
   );
 }

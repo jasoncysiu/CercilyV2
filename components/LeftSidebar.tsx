@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ProjectItem } from '@/lib/types';
-import { ChevronRight, ChevronDown, Edit, Plus, Trash2 } from 'lucide-react'; // Import Lucide icons
+import { ChevronRight, ChevronDown, Edit, Plus, Trash2, FileText } from 'lucide-react';
 
 interface LeftSidebarProps {
   projects: ProjectItem[];
@@ -16,9 +16,10 @@ interface LeftSidebarProps {
   onNewChatInProject: (projectId: string) => void;
   onRenameProject: (projectId: string, newTitle: string) => void;
   onRenameChat: (chatId: string, newTitle: string) => void;
+  onOpenProjectContext: (projectId: string) => void;
 }
 
-export default function LeftSidebar({ projects, currentChatId, onSelectChat, onSelectProject, onDeleteChat, onNewProject, onNewChat, onDeleteProject, onNewChatInProject, onRenameProject, onRenameChat }: LeftSidebarProps) {
+export default function LeftSidebar({ projects, currentChatId, onSelectChat, onSelectProject, onDeleteChat, onNewProject, onNewChat, onDeleteProject, onNewChatInProject, onRenameProject, onRenameChat, onOpenProjectContext }: LeftSidebarProps) {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
     new Set(projects.map(p => p.id))
   );
@@ -80,6 +81,14 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
                 </span>
                 <span className="project-title-text">{project.title}</span>
               </div>
+              <button
+                className="project-context-btn"
+                aria-label={`Edit context for ${project.title}`}
+                onClick={() => onOpenProjectContext(project.id)}
+                title="Edit project context"
+              >
+                <FileText size={14} />
+              </button>
               <button
                 className="project-edit-btn"
                 aria-label={`Rename ${project.title}`}

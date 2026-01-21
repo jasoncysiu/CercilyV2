@@ -71,11 +71,23 @@ export default function CanvasPanel({
   const canvasAreaRef = useRef<HTMLDivElement>(null);
   const canvasContentRef = useRef<HTMLDivElement>(null); // This will now be the transformed wrapper
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  
+
+  // Multi-select state (local to avoid parent changes)
+  const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
+
   // Dragging state
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 }); // In Model Coordinates
-  
+
+  // Smooth drag: track visual offset during drag (not committed to state until mouseup)
+  const [dragDelta, setDragDelta] = useState({ x: 0, y: 0 });
+  const dragStartBlockPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  // Marquee selection state
+  const [isMarqueeSelecting, setIsMarqueeSelecting] = useState(false);
+  const [marqueeStart, setMarqueeStart] = useState({ x: 0, y: 0 });
+  const [marqueeEnd, setMarqueeEnd] = useState({ x: 0, y: 0 });
+
   // Panning state
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -136,6 +148,121 @@ export default function CanvasPanel({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Sync parent's selectedBlock with local multi-select
+  useEffect(() => {
+    if (selectedBlock && !selectedBlockIds.has(selectedBlock)) {
+      setSelectedBlockIds(new Set([selectedBlock]));
+    }
+  }, [selectedBlock]);
+
+  // Notify parent when selection changes (use first selected or null)
+  useEffect(() => {
+    const firstSelected = selectedBlockIds.size > 0 ? Array.from(selectedBlockIds)[0] : null;
+    if (firstSelected !== selectedBlock) {
+      onSelectBlock(firstSelected);
+    }
+  }, [selectedBlockIds]);
+
+  // Keyboard shortcuts: ESC to dismiss, Arrow+Shift to extend selection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ESC: dismiss menus and clear selection
+      if (e.key === 'Escape') {
+        setContextMenu(null);
+        setBlockContextMenu(null);
+        setDropMenu(null);
+        setSelectedBlockIds(new Set());
+        setIsMarqueeSelecting(false);
+        return;
+      }
+
+      // Arrow keys: navigate/extend selection
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        const visibleBlocksList = blocks.filter(b => !b.isHidden);
+        if (visibleBlocksList.length === 0) return;
+
+        // Get anchor block (last selected or first visible)
+        let anchorBlock: Block | undefined;
+        if (selectedBlockIds.size > 0) {
+          const lastSelectedId = Array.from(selectedBlockIds).pop();
+          anchorBlock = visibleBlocksList.find(b => b.id === lastSelectedId);
+        }
+        if (!anchorBlock) {
+          // No selection - select first block
+          setSelectedBlockIds(new Set([visibleBlocksList[0].id]));
+          return;
+        }
+
+        // Find nearest block in the arrow direction
+        let bestBlock: Block | null = null;
+        let bestScore = Infinity;
+
+        visibleBlocksList.forEach(block => {
+          if (block.id === anchorBlock!.id) return;
+
+          const dx = block.x - anchorBlock!.x;
+          const dy = block.y - anchorBlock!.y;
+
+          let isInDirection = false;
+          let distance = 0;
+
+          switch (e.key) {
+            case 'ArrowRight':
+              isInDirection = dx > 50; // Must be significantly to the right
+              distance = Math.abs(dx) + Math.abs(dy) * 2; // Favor horizontal
+              break;
+            case 'ArrowLeft':
+              isInDirection = dx < -50;
+              distance = Math.abs(dx) + Math.abs(dy) * 2;
+              break;
+            case 'ArrowDown':
+              isInDirection = dy > 30;
+              distance = Math.abs(dy) + Math.abs(dx) * 2; // Favor vertical
+              break;
+            case 'ArrowUp':
+              isInDirection = dy < -30;
+              distance = Math.abs(dy) + Math.abs(dx) * 2;
+              break;
+          }
+
+          if (isInDirection && distance < bestScore) {
+            bestScore = distance;
+            bestBlock = block;
+          }
+        });
+
+        if (bestBlock) {
+          e.preventDefault();
+          if (e.shiftKey) {
+            // Extend selection
+            setSelectedBlockIds(prev => new Set([...prev, bestBlock!.id]));
+          } else {
+            // Move selection
+            setSelectedBlockIds(new Set([bestBlock.id]));
+          }
+        }
+      }
+
+      // Delete key: delete selected blocks
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlockIds.size > 0) {
+        // Don't delete if editing text
+        if (document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'INPUT') return;
+
+        e.preventDefault();
+        const idsToDelete = Array.from(selectedBlockIds);
+        if (onDeleteBlocks && idsToDelete.length > 1) {
+          onDeleteBlocks(idsToDelete);
+        } else {
+          idsToDelete.forEach(id => onDeleteBlock(id));
+        }
+        setSelectedBlockIds(new Set());
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [blocks, selectedBlockIds, onDeleteBlock, onDeleteBlocks]);
 
   const getConnPoint = useCallback((blockId: string, pos: ConnectionPosition) => {
     if (typeof document === 'undefined') return { x: 0, y: 0 };
@@ -219,7 +346,24 @@ export default function CanvasPanel({
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     if (currentTool !== 'select') return;
     if ((e.target as HTMLElement).closest('.canvas-block')) return;
-    
+
+    // If Shift is held, start marquee selection
+    if (e.shiftKey) {
+      const rect = canvasAreaRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const modelX = (e.clientX - rect.left - pan.x) / zoom;
+      const modelY = (e.clientY - rect.top - pan.y) / zoom;
+      setIsMarqueeSelecting(true);
+      setMarqueeStart({ x: modelX, y: modelY });
+      setMarqueeEnd({ x: modelX, y: modelY });
+      return;
+    }
+
+    // Clear selection when clicking empty canvas
+    if (!e.shiftKey) {
+      setSelectedBlockIds(new Set());
+    }
+
     setIsPanning(true);
     setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
@@ -230,7 +374,7 @@ export default function CanvasPanel({
     const el = e.currentTarget as HTMLElement;
     const block = blocks.find(b => b.id === blockId);
     if (!block) return;
-    
+
     const rect = canvasAreaRef.current?.getBoundingClientRect();
     if (!rect) return;
 
@@ -239,7 +383,7 @@ export default function CanvasPanel({
       const bRect = el.getBoundingClientRect();
       const mouseX = e.clientX;
       const mouseY = e.clientY;
-      
+
       // Find nearest connection point to start the line from
       const points: { pos: ConnectionPosition; x: number; y: number }[] = [
         { pos: 'top', x: bRect.left + bRect.width / 2, y: bRect.top },
@@ -247,7 +391,7 @@ export default function CanvasPanel({
         { pos: 'left', x: bRect.left, y: bRect.top + bRect.height / 2 },
         { pos: 'right', x: bRect.right, y: bRect.top + bRect.height / 2 }
       ];
-      
+
       let startPos: ConnectionPosition = 'right';
       let minDist = Infinity;
       points.forEach(p => {
@@ -260,24 +404,55 @@ export default function CanvasPanel({
 
       setIsConnecting(true);
       setConnectingFrom({ blockId, pos: startPos });
-      
+
       const pt = getConnPoint(blockId, startPos);
       setTempLineEnd(pt);
       return;
     }
 
-    onSelectBlock(blockId);
+    // Multi-select logic
+    if (e.shiftKey || e.metaKey || e.ctrlKey) {
+      // Toggle selection
+      setSelectedBlockIds(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(blockId)) {
+          newSet.delete(blockId);
+        } else {
+          newSet.add(blockId);
+        }
+        return newSet;
+      });
+    } else if (!selectedBlockIds.has(blockId)) {
+      // Single select (clear others)
+      setSelectedBlockIds(new Set([blockId]));
+    }
+    // If already selected (and no modifier), keep selection for drag
+
     setIsDragging(true);
+    setDragDelta({ x: 0, y: 0 }); // Reset drag delta
     if (contextMenu) setContextMenu(null);
     if (blockContextMenu) setBlockContextMenu(null);
 
     dragStartPosRef.current = { x: e.clientX, y: e.clientY };
 
+    // Store initial positions for all selected blocks (for batch drag)
+    const posMap = new Map<string, { x: number; y: number }>();
+    const blocksToMove = selectedBlockIds.has(blockId) ? selectedBlockIds : new Set([blockId]);
+    blocksToMove.forEach(id => {
+      const b = blocks.find(bl => bl.id === id);
+      if (b) posMap.set(id, { x: b.x, y: b.y });
+    });
+    // Also add the clicked block if not already
+    if (!posMap.has(blockId)) {
+      posMap.set(blockId, { x: block.x, y: block.y });
+    }
+    dragStartBlockPositions.current = posMap;
+
     // Calculate Mouse Position in Model Logic
     const mouseModelX = (e.clientX - rect.left - pan.x) / zoom;
     const mouseModelY = (e.clientY - rect.top - pan.y) / zoom;
 
-    // Drag Offset = MouseModel - BlockModel
+    // Drag Offset = MouseModel - BlockModel (use clicked block as reference)
     setDragOffset({
       x: mouseModelX - block.x,
       y: mouseModelY - block.y,
@@ -326,7 +501,9 @@ export default function CanvasPanel({
   const dragInfoRef = useRef({
     isDragging: false,
     selectedBlock: null as string | null,
+    selectedBlockIds: new Set<string>(),
     dragOffset: { x: 0, y: 0 },
+    dragDelta: { x: 0, y: 0 },
     isConnecting: false,
     connectingFrom: null as { blockId: string; pos: ConnectionPosition } | null,
     hoveredBlockId: null as string | null,
@@ -335,7 +512,9 @@ export default function CanvasPanel({
     isResizing: false,
     resizingBlockId: null as string | null,
     resizeStartPos: { x: 0, y: 0 },
-    resizeStartSize: { width: 0, height: 0 }
+    resizeStartSize: { width: 0, height: 0 },
+    isMarqueeSelecting: false,
+    marqueeStart: { x: 0, y: 0 }
   });
 
   // Keep refs in sync with state for any values needed inside listeners
@@ -343,7 +522,9 @@ export default function CanvasPanel({
     dragInfoRef.current = {
       isDragging,
       selectedBlock,
+      selectedBlockIds,
       dragOffset,
+      dragDelta,
       isConnecting,
       connectingFrom,
       hoveredBlockId,
@@ -352,14 +533,16 @@ export default function CanvasPanel({
       isResizing,
       resizingBlockId,
       resizeStartPos,
-      resizeStartSize
+      resizeStartSize,
+      isMarqueeSelecting,
+      marqueeStart
     };
-  }, [isDragging, selectedBlock, dragOffset, isConnecting, connectingFrom, hoveredBlockId, isPanning, panStart, isResizing, resizingBlockId, resizeStartPos, resizeStartSize]);
+  }, [isDragging, selectedBlock, selectedBlockIds, dragOffset, dragDelta, isConnecting, connectingFrom, hoveredBlockId, isPanning, panStart, isResizing, resizingBlockId, resizeStartPos, resizeStartSize, isMarqueeSelecting, marqueeStart]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      const { isDragging, selectedBlock, dragOffset, isConnecting, connectingFrom, isPanning, panStart, isResizing, resizingBlockId, resizeStartPos, resizeStartSize } = dragInfoRef.current;
-      
+      const { isDragging, selectedBlockIds, dragOffset, isConnecting, connectingFrom, isPanning, panStart, isResizing, resizingBlockId, resizeStartPos, resizeStartSize, isMarqueeSelecting, marqueeStart } = dragInfoRef.current;
+
       if (isPanning) {
         setPan({
           x: e.clientX - panStart.x,
@@ -368,42 +551,64 @@ export default function CanvasPanel({
         return;
       }
 
-      if (isDragging && selectedBlock) {
+      // Marquee selection
+      if (isMarqueeSelecting) {
         const canvasArea = canvasAreaRef.current;
         if (!canvasArea) return;
-        
+        const cRect = canvasArea.getBoundingClientRect();
+        const modelX = (e.clientX - cRect.left - pan.x) / zoom;
+        const modelY = (e.clientY - cRect.top - pan.y) / zoom;
+        setMarqueeEnd({ x: modelX, y: modelY });
+        return;
+      }
+
+      // Smooth dragging: update dragDelta (visual only) instead of calling onUpdateBlock
+      if (isDragging && selectedBlockIds.size > 0) {
+        const canvasArea = canvasAreaRef.current;
+        if (!canvasArea) return;
+
         const cRect = canvasArea.getBoundingClientRect();
         const mouseModelX = (e.clientX - cRect.left - pan.x) / zoom;
         const mouseModelY = (e.clientY - cRect.top - pan.y) / zoom;
 
-        const newX = mouseModelX - dragOffset.x;
-        const newY = mouseModelY - dragOffset.y;
-        
-        onUpdateBlock(selectedBlock, { x: newX, y: newY });
+        // Calculate delta from start position
+        const startPos = dragStartPosRef.current;
+        const startCRect = cRect; // Use current rect
+        const startModelX = (startPos.x - startCRect.left - pan.x) / zoom;
+        const startModelY = (startPos.y - startCRect.top - pan.y) / zoom;
 
-        // Collision detection
-        const mouseX = e.clientX;
-        const mouseY = e.clientY;
-        let foundHover: string | null = null;
-        const blockEls = document.querySelectorAll('.canvas-block');
-        blockEls.forEach(el => {
-            if (el.id === selectedBlock) return;
+        const deltaX = mouseModelX - startModelX;
+        const deltaY = mouseModelY - startModelY;
+
+        // Update visual delta (doesn't trigger re-render of parent)
+        setDragDelta({ x: deltaX, y: deltaY });
+
+        // Collision detection for single block (drop menu)
+        if (selectedBlockIds.size === 1) {
+          const mouseX = e.clientX;
+          const mouseY = e.clientY;
+          let foundHover: string | null = null;
+          const selectedId = Array.from(selectedBlockIds)[0];
+          const blockEls = document.querySelectorAll('.canvas-block');
+          blockEls.forEach(el => {
+            if (el.id === selectedId) return;
             const rect = el.getBoundingClientRect();
             if (mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom) {
-                foundHover = el.id;
+              foundHover = el.id;
             }
-        });
-        setHoveredBlockId(foundHover);
+          });
+          setHoveredBlockId(foundHover);
+        }
       }
-      
+
       if (isConnecting && connectingFrom) {
         const canvasContent = canvasContentRef.current;
         if (!canvasContent) return;
-        
+
         const cRect = canvasContent.getBoundingClientRect();
         const relativeX = e.clientX - cRect.left;
         const relativeY = e.clientY - cRect.top;
-        
+
         setTempLineEnd({
           x: relativeX / zoom,
           y: relativeY / zoom,
@@ -423,35 +628,86 @@ export default function CanvasPanel({
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      const { isDragging, selectedBlock, isConnecting, connectingFrom, hoveredBlockId, isPanning } = dragInfoRef.current;
+      const { isDragging, selectedBlock, selectedBlockIds, isConnecting, connectingFrom, hoveredBlockId, isPanning, isMarqueeSelecting, marqueeStart, dragDelta } = dragInfoRef.current;
 
       if (isPanning) {
         setIsPanning(false);
         return;
       }
 
+      // Marquee selection complete
+      if (isMarqueeSelecting) {
+        setIsMarqueeSelecting(false);
+        const canvasArea = canvasAreaRef.current;
+        if (!canvasArea) return;
+        const cRect = canvasArea.getBoundingClientRect();
+        const endModelX = (e.clientX - cRect.left - pan.x) / zoom;
+        const endModelY = (e.clientY - cRect.top - pan.y) / zoom;
+
+        // Calculate marquee bounds
+        const minX = Math.min(marqueeStart.x, endModelX);
+        const maxX = Math.max(marqueeStart.x, endModelX);
+        const minY = Math.min(marqueeStart.y, endModelY);
+        const maxY = Math.max(marqueeStart.y, endModelY);
+
+        // Find blocks within marquee
+        const selectedIds = new Set<string>();
+        blocks.forEach(block => {
+          if (block.isHidden) return;
+          const blockRight = block.x + (block.width || 260);
+          const blockBottom = block.y + 100; // Approximate height
+          // Check if block intersects marquee
+          if (block.x < maxX && blockRight > minX && block.y < maxY && blockBottom > minY) {
+            selectedIds.add(block.id);
+          }
+        });
+        setSelectedBlockIds(selectedIds);
+        setMarqueeEnd({ x: 0, y: 0 });
+        return;
+      }
+
       if (isDragging) {
         setIsDragging(false);
         skipNextClickRef.current = true;
-        
+
         const dist = Math.sqrt(Math.pow(e.clientX - dragStartPosRef.current.x, 2) + Math.pow(e.clientY - dragStartPosRef.current.y, 2));
-        if (dist < 5 && selectedBlock) {
+
+        // Commit positions for all selected blocks (batch update)
+        if (dist >= 5 && dragStartBlockPositions.current.size > 0) {
+          const delta = { x: dragDelta.x, y: dragDelta.y };
+          dragStartBlockPositions.current.forEach((startPos, blockId) => {
+            onUpdateBlock(blockId, {
+              x: startPos.x + delta.x,
+              y: startPos.y + delta.y
+            });
+          });
+        }
+
+        // Reset drag delta
+        setDragDelta({ x: 0, y: 0 });
+        dragStartBlockPositions.current.clear();
+
+        if (dist < 5 && selectedBlockIds.size > 0) {
           // Detected a click on the block - show the bar
+          const firstSelected = Array.from(selectedBlockIds)[0];
           setBlockContextMenu({
             x: e.clientX,
             y: e.clientY - 60,
-            blockId: selectedBlock
+            blockId: firstSelected
           });
         }
-        
-        if (hoveredBlockId && selectedBlock && hoveredBlockId !== selectedBlock) {
-          setDropMenu({
-            visible: true,
-            x: e.clientX,
-            y: e.clientY,
-            sourceId: selectedBlock,
-            targetId: hoveredBlockId
-          });
+
+        if (hoveredBlockId && selectedBlockIds.size === 1) {
+          const sourceId = Array.from(selectedBlockIds)[0];
+          if (hoveredBlockId !== sourceId) {
+            setDropMenu({
+              visible: true,
+              x: e.clientX,
+              y: e.clientY,
+              sourceId,
+              targetId: hoveredBlockId
+            });
+          }
         }
         setHoveredBlockId(null);
       }
@@ -565,11 +821,13 @@ export default function CanvasPanel({
       <div ref={canvasAreaRef} className={`canvas-area ${currentTool === 'select' ? 'select-mode' : ''}`} 
         onClick={(e) => {
           if (contextMenu) setContextMenu(null);
+          if (blockContextMenu) setBlockContextMenu(null);
           handleCanvasClick(e);
-        }} 
-        onWheel={handleWheel} 
+        }}
+        onWheel={handleWheel}
         onMouseDown={(e) => {
           if (contextMenu) setContextMenu(null);
+          if (blockContextMenu) setBlockContextMenu(null);
           handleCanvasMouseDown(e);
         }}>
 
@@ -587,31 +845,55 @@ export default function CanvasPanel({
             {visibleBlocks.length === 0 && currentTool === 'text' && (
               <div className="click-hint">Click anywhere to add a note<br /><span style={{ fontSize: '12px', opacity: 0.7 }}>or select text from chat</span></div>
             )}
-            {visibleBlocks.map(block => (
-              <CanvasBlock 
-                key={block.id} 
-                block={block} 
-                isSelected={selectedBlock === block.id} 
-                isDragging={isDragging && selectedBlock === block.id} 
-                onMouseDown={(e) => handleBlockMouseDown(block.id, e)} 
-                onDelete={() => onDeleteBlock(block.id)} 
-                onEdit={(newText) => {
-                  if (newText.trim() === '') {
-                    onDeleteBlock(block.id);
-                  } else {
-                    onUpdateBlock(block.id, { text: newText, isEditing: false });
-                  }
-                }} 
-                onConnectionPointMouseDown={handleConnectionPointMouseDown} 
-                onNavigateSource={() => onBlockClick?.(block.id, block.chatId, block.messageId, block.startOffset, block.endOffset)} 
-                onToggle={() => { if (onToggleCollapse) onToggleCollapse(block.id); else onUpdateBlock(block.id, { isCollapsed: !block.isCollapsed }); onSetTool('select'); }} 
-                isDropTarget={hoveredBlockId === block.id} 
-                onResizeMouseDown={handleResizeMouseDown} 
+            {visibleBlocks.map(block => {
+              const isBlockSelected = selectedBlockIds.has(block.id);
+              const isBlockDragging = isDragging && isBlockSelected;
+              // Apply drag delta for smooth visual feedback during drag
+              const visualX = isBlockDragging ? block.x + dragDelta.x : block.x;
+              const visualY = isBlockDragging ? block.y + dragDelta.y : block.y;
+              return (
+                <CanvasBlock
+                  key={block.id}
+                  block={{ ...block, x: visualX, y: visualY }}
+                  isSelected={isBlockSelected}
+                  isDragging={isBlockDragging}
+                  onMouseDown={(e) => handleBlockMouseDown(block.id, e)}
+                  onDelete={() => onDeleteBlock(block.id)}
+                  onEdit={(newText) => {
+                    if (newText.trim() === '') {
+                      onDeleteBlock(block.id);
+                    } else {
+                      onUpdateBlock(block.id, { text: newText, isEditing: false });
+                    }
+                  }}
+                  onConnectionPointMouseDown={handleConnectionPointMouseDown}
+                  onNavigateSource={() => onBlockClick?.(block.id, block.chatId, block.messageId, block.startOffset, block.endOffset)}
+                  onToggle={() => { if (onToggleCollapse) onToggleCollapse(block.id); else onUpdateBlock(block.id, { isCollapsed: !block.isCollapsed }); onSetTool('select'); }}
+                  isDropTarget={hoveredBlockId === block.id}
+                  onResizeMouseDown={handleResizeMouseDown}
+                />
+              );
+            })}
+            {/* Marquee selection rectangle */}
+            {isMarqueeSelecting && (
+              <div
+                className="marquee-selection"
+                style={{
+                  position: 'absolute',
+                  left: Math.min(marqueeStart.x, marqueeEnd.x),
+                  top: Math.min(marqueeStart.y, marqueeEnd.y),
+                  width: Math.abs(marqueeEnd.x - marqueeStart.x),
+                  height: Math.abs(marqueeEnd.y - marqueeStart.y),
+                  border: '2px dashed var(--accent)',
+                  backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                  pointerEvents: 'none',
+                  borderRadius: '4px',
+                }}
               />
-            ))}
-            {(isDragging && hoveredBlockId && selectedBlock) && (
+            )}
+            {(isDragging && hoveredBlockId && selectedBlockIds.size === 1) && (
                 <svg className="connections-svg" style={{ overflow: 'visible', pointerEvents: 'none', opacity: 0.6 }}>
-                    <path className="connection-line blue" d={renderConnectionPath({ from: hoveredBlockId, fromPos: 'bottom', to: selectedBlock, toPos: 'top', color: 'blue' })} strokeDasharray="5,5" vectorEffect="non-scaling-stroke" />
+                    <path className="connection-line blue" d={renderConnectionPath({ from: hoveredBlockId, fromPos: 'bottom', to: Array.from(selectedBlockIds)[0], toPos: 'top', color: 'blue' })} strokeDasharray="5,5" vectorEffect="non-scaling-stroke" />
                 </svg>
             )}
             {dropMenu && (
@@ -659,23 +941,36 @@ export default function CanvasPanel({
         )}
 
         {blockContextMenu && (
-          <div 
-            className="canva-context-menu" 
-            style={{ 
-              left: blockContextMenu.x, 
-              top: blockContextMenu.y, 
-              position: 'fixed', 
-              transform: 'translateX(-50%)' 
+          <div
+            className="canva-context-menu"
+            style={{
+              left: blockContextMenu.x,
+              top: blockContextMenu.y,
+              position: 'fixed',
+              transform: 'translateX(-50%)'
             }}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
+            {/* Show selection count if multiple */}
+            {selectedBlockIds.size > 1 && (
+              <>
+                <div className="context-menu-label" style={{ padding: '4px 12px', fontSize: '11px', opacity: 0.7 }}>
+                  {selectedBlockIds.size} cards selected
+                </div>
+                <div className="context-menu-divider" />
+              </>
+            )}
             <button className="context-menu-btn" onClick={() => {
-              const block = blocks.find(b => b.id === blockContextMenu.blockId);
-              if (block) {
-                if (onToggleCollapse) onToggleCollapse(block.id);
-                else onUpdateBlock(block.id, { isCollapsed: !block.isCollapsed });
-              }
+              // Collapse/Expand all selected blocks
+              const idsToToggle = selectedBlockIds.size > 1 ? Array.from(selectedBlockIds) : [blockContextMenu.blockId];
+              idsToToggle.forEach(id => {
+                const block = blocks.find(b => b.id === id);
+                if (block) {
+                  if (onToggleCollapse) onToggleCollapse(block.id);
+                  else onUpdateBlock(block.id, { isCollapsed: !block.isCollapsed });
+                }
+              });
               setBlockContextMenu(null);
             }}>
               {blocks.find(b => b.id === blockContextMenu.blockId)?.isCollapsed ? 'Expand' : 'Collapse'}
@@ -684,24 +979,34 @@ export default function CanvasPanel({
             <button className="context-menu-btn" onClick={() => {
               // Transition to connect tool starting from this block
               onSetTool('connect');
-              // We'd ideally start the connection immediately, but for now we'll switch tools
               setBlockContextMenu(null);
             }}>
               Link
             </button>
-            <div className="context-menu-divider" />
-            <button className="context-menu-btn" onClick={() => {
-              onUpdateBlock(blockContextMenu.blockId, { isEditing: true });
-              setBlockContextMenu(null);
-            }}>
-              Edit
-            </button>
+            {selectedBlockIds.size <= 1 && (
+              <>
+                <div className="context-menu-divider" />
+                <button className="context-menu-btn" onClick={() => {
+                  onUpdateBlock(blockContextMenu.blockId, { isEditing: true });
+                  setBlockContextMenu(null);
+                }}>
+                  Edit
+                </button>
+              </>
+            )}
             <div className="context-menu-divider" />
             <button className="context-menu-btn delete" onClick={() => {
-              onDeleteBlock(blockContextMenu.blockId);
+              // Delete all selected blocks
+              const idsToDelete = selectedBlockIds.size > 1 ? Array.from(selectedBlockIds) : [blockContextMenu.blockId];
+              if (onDeleteBlocks && idsToDelete.length > 1) {
+                onDeleteBlocks(idsToDelete);
+              } else {
+                idsToDelete.forEach(id => onDeleteBlock(id));
+              }
+              setSelectedBlockIds(new Set());
               setBlockContextMenu(null);
             }} style={{ color: '#ff453a' }}>
-              Delete
+              Delete{selectedBlockIds.size > 1 ? ` (${selectedBlockIds.size})` : ''}
             </button>
           </div>
         )}

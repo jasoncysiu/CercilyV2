@@ -67,10 +67,12 @@ export interface Project {
   id: string;
   title: string;
   chatIds: string[];
+  context?: string; // Project-level context to be included in chats
 }
 
 export interface ProjectItem {
   id: string;
   title: string;
   chats: ChatItem[];
+  context?: string;
 }

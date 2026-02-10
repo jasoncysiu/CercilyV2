@@ -4,14 +4,21 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import MainToolbar from '@/components/MainToolbar';
 import LeftSidebar from '@/components/LeftSidebar';
 import ChatView from '@/components/ChatView';
-import CanvasPanel from '@/components/CanvasPanel';
+import CanvasPanel from '@/components/X6CanvasWrapper';
 import SelectionPopup from '@/components/SelectionPopup';
 import Toast from '@/components/Toast';
 import RemoveHighlightPopup from '@/components/RemoveHighlightPopup';
 import SettingsPanel from '@/components/SettingsPanel';
 import ResizeHandle from '@/components/ResizeHandle';
 import ProjectContextModal from '@/components/ProjectContextModal';
-import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight, ChatData, Project, ProjectItem } from '@/lib/types';
+import CircularProgress from '@/components/CircularProgress';
+import DecisionFlow from '@/components/DecisionFlow';
+import SynthesisModal from '@/components/SynthesisModal';
+import DecisionJournalView from '@/components/DecisionJournalView';
+import ReviewModal from '@/components/ReviewModal';
+import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight, ChatData, Project, ProjectItem, DecisionData, ProjectWithDecision, SynthesisResult, SynthesizedDecision } from '@/lib/types';
+import { generateId } from '@/lib/decisionStore';
+import { useCanvasHistory } from '@/hooks/useCanvasHistory';
 
 // Cache keys for localStorage
 const CACHE_KEY_PROJECTS = 'cercily-cache-projects';
@@ -307,6 +314,10 @@ export default function Home() {
   const displayedBlocks = projectChatIds.flatMap(id => (chatsData[id]?.blocks || []).map(b => ({ ...b, chatId: id })));
   const displayedConnections = projectChatIds.flatMap(id => (chatsData[id]?.connections || []));
 
+  const { pushSnapshot, undo: canvasUndo, redo: canvasRedo, canUndo, canRedo } = useCanvasHistory(
+    chatsData, setChatsData, projectChatIds, currentProjectId
+  );
+
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [currentTool, setCurrentTool] = useState<ToolType>('text');
   const [zoom, setZoom] = useState(1);
@@ -330,6 +341,22 @@ export default function Home() {
   // Toggle for including project context in chat
   const [includeContext, setIncludeContext] = useState(true);
 
+  // Decision mode state
+  const [isDecisionMode, setIsDecisionMode] = useState(false);
+  const [decisionNodeIds, setDecisionNodeIds] = useState<string[]>([]);
+
+  // Synthesis modal state
+  const [showSynthesisModal, setShowSynthesisModal] = useState(false);
+  const [synthesisResult, setSynthesisResult] = useState<SynthesisResult | null>(null);
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
+
+  // Synthesized decisions stored locally (will persist to localStorage)
+  const [synthesizedDecisions, setSynthesizedDecisions] = useState<SynthesizedDecision[]>([]);
+
+  // Decision journal and review modal state
+  const [showDecisionJournal, setShowDecisionJournal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewingDecision, setReviewingDecision] = useState<SynthesizedDecision | null>(null);
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -401,6 +428,9 @@ export default function Home() {
   const highlightIdRef = useRef(0);
   const messageIdRef = useRef(100); // To generate unique message IDs
 
+  // Ref to skip snapshot in internal calls (e.g. mergeBlocks calls updateBlock + deleteBlock)
+  const skipSnapshotRef = useRef(false);
+
   // Helper to update the current chat's data
   const updateCurrentChatData = useCallback((updates: Partial<ChatData>) => {
     setChatsData(prev => ({
@@ -422,23 +452,41 @@ export default function Home() {
     startOffset?: number,
     endOffset?: number
   ) => {
+    pushSnapshot();
     const id = `block-${++blockIdRef.current}`;
     let posX = x;
     let posY = y;
-    
+
     if (posX === undefined || posY === undefined) {
-      const col = blocks.length % 3;
-      const row = Math.floor(blocks.length / 3);
-      posX = 30 + col * 210;
-      posY = 30 + row * 130;
+      // Gather all blocks across the project (not just current chat) to avoid overlaps
+      const allBlocks = projectChatIds.flatMap(cid => chatsData[cid]?.blocks || []);
+      const occupied = new Set(allBlocks.map(b => `${Math.round(b.x / 210)},${Math.round(b.y / 130)}`));
+
+      // Find the first unoccupied grid slot
+      let placed = false;
+      for (let row = 0; row < 100 && !placed; row++) {
+        for (let col = 0; col < 3 && !placed; col++) {
+          const key = `${col},${row}`;
+          if (!occupied.has(key)) {
+            posX = 30 + col * 210;
+            posY = 30 + row * 130;
+            placed = true;
+          }
+        }
+      }
+      if (!placed) {
+        const rows = Math.ceil(allBlocks.length / 3);
+        posX = 30;
+        posY = 30 + rows * 130;
+      }
     }
-    
+
     const newBlock: Block = {
       id,
       text,
       color,
-      x: posX,
-      y: posY,
+      x: posX!,
+      y: posY!,
       chatId: currentChatId,
       messageId,
       startOffset,
@@ -447,7 +495,7 @@ export default function Home() {
     };
     updateCurrentChatData({ blocks: [...blocks, newBlock] });
     showToast('Added to canvas!');
-  }, [blocks, showToast, updateCurrentChatData, currentChatId]);
+  }, [blocks, showToast, updateCurrentChatData, currentChatId, pushSnapshot, projectChatIds, chatsData]);
 
   const addHighlight = useCallback((
     messageId: string,
@@ -469,9 +517,41 @@ export default function Home() {
   }, [highlights, updateCurrentChatData]);
 
   const removeHighlight = useCallback((id: string) => {
-    updateCurrentChatData({ highlights: highlights.filter(h => h.id !== id) });
-    showToast('Highlight removed!');
-  }, [highlights, showToast, updateCurrentChatData]);
+    pushSnapshot();
+    // Find the highlight to get its linkage, then remove both highlight and linked block
+    setChatsData(prev => {
+      // First find the highlight across all chats
+      let targetHighlight: Highlight | null = null;
+      for (const chat of Object.values(prev)) {
+        const found = chat.highlights.find(h => h.id === id);
+        if (found) { targetHighlight = found; break; }
+      }
+
+      const updated: Record<string, ChatData> = {};
+      Object.entries(prev).forEach(([chatId, chat]) => {
+        let filteredBlocks = chat.blocks;
+        if (targetHighlight) {
+          filteredBlocks = chat.blocks.filter(b =>
+            !(b.messageId === targetHighlight!.messageId &&
+              b.startOffset === targetHighlight!.startOffset &&
+              b.endOffset === targetHighlight!.endOffset)
+          );
+        }
+        // Remove connections to deleted blocks
+        const deletedBlockIds = new Set(chat.blocks.filter(b => !filteredBlocks.includes(b)).map(b => b.id));
+        updated[chatId] = {
+          ...chat,
+          highlights: chat.highlights.filter(h => h.id !== id),
+          blocks: filteredBlocks,
+          connections: deletedBlockIds.size > 0
+            ? chat.connections.filter(c => !deletedBlockIds.has(c.from) && !deletedBlockIds.has(c.to))
+            : chat.connections,
+        };
+      });
+      return updated;
+    });
+    showToast('Highlight & block removed!');
+  }, [showToast, pushSnapshot]);
 
   const updateBlock = useCallback((id: string, updates: Partial<Block>) => {
     setChatsData(prev => {
@@ -527,126 +607,178 @@ export default function Home() {
 
 
   const deleteBlock = useCallback((id: string) => {
-    // Find which chat this block belongs to and delete it from there
+    if (!skipSnapshotRef.current) pushSnapshot();
+    // Find which chat this block belongs to and delete it + its linked highlight
     setChatsData(prev => {
       const updated: Record<string, ChatData> = {};
       Object.entries(prev).forEach(([chatId, chat]) => {
+        // Find the block being deleted to get its highlight linkage
+        const blockToDelete = chat.blocks.find(b => b.id === id);
+        let filteredHighlights = chat.highlights;
+        if (blockToDelete?.messageId && blockToDelete.startOffset !== undefined && blockToDelete.endOffset !== undefined) {
+          filteredHighlights = chat.highlights.filter(h =>
+            !(h.messageId === blockToDelete.messageId &&
+              h.startOffset === blockToDelete.startOffset &&
+              h.endOffset === blockToDelete.endOffset)
+          );
+        }
         updated[chatId] = {
           ...chat,
           blocks: chat.blocks.filter(b => b.id !== id),
           connections: chat.connections.filter(c => c.from !== id && c.to !== id),
+          highlights: filteredHighlights,
         };
       });
       return updated;
     });
-  }, []);
+    showToast('Block deleted');
+  }, [showToast, pushSnapshot]);
 
   const deleteBlocks = useCallback((ids: string[]) => {
+    pushSnapshot();
     const idSet = new Set(ids);
     setChatsData(prev => {
       const updated: Record<string, ChatData> = {};
       Object.entries(prev).forEach(([chatId, chat]) => {
+        // Collect linkage keys for blocks being deleted
+        const deletedLinkKeys = new Set<string>();
+        chat.blocks.forEach(b => {
+          if (idSet.has(b.id) && b.messageId && b.startOffset !== undefined && b.endOffset !== undefined) {
+            deletedLinkKeys.add(`${b.messageId}:${b.startOffset}:${b.endOffset}`);
+          }
+        });
         updated[chatId] = {
           ...chat,
           blocks: chat.blocks.filter(b => !idSet.has(b.id)),
           connections: chat.connections.filter(c => !idSet.has(c.from) && !idSet.has(c.to)),
+          highlights: deletedLinkKeys.size > 0
+            ? chat.highlights.filter(h => !deletedLinkKeys.has(`${h.messageId}:${h.startOffset}:${h.endOffset}`))
+            : chat.highlights,
         };
       });
       return updated;
     });
     showToast(`Deleted ${ids.length} blocks`);
-  }, [showToast]);
+  }, [showToast, pushSnapshot]);
 
 
   const toggleCollapse = useCallback((id: string) => {
+    pushSnapshot();
+    const pChatIds = projects[currentProjectId]?.chatIds || [];
+
     setChatsData(prev => {
-      const updated: Record<string, ChatData> = {};
-      Object.entries(prev).forEach(([chatId, chat]) => {
-        // Find the block in this chat
-        const blockIndex = chat.blocks.findIndex(b => b.id === id);
-        if (blockIndex === -1) {
-          updated[chatId] = chat;
-          return;
+      // Gather ALL connections and blocks across project chats
+      const allConnections: Connection[] = [];
+      pChatIds.forEach(cid => {
+        const chat = prev[cid];
+        if (chat) allConnections.push(...chat.connections);
+      });
+
+      // Build a mutable map of ALL blocks across project chats (deep copy)
+      const allBlocksCopy = new Map<string, Block & { _chatId: string }>();
+      pChatIds.forEach(cid => {
+        const chat = prev[cid];
+        if (chat) {
+          chat.blocks.forEach(b => {
+            allBlocksCopy.set(b.id, { ...b, _chatId: cid });
+          });
         }
+      });
 
-        // Deep copy blocks to safely mutate
-        const newBlocks = chat.blocks.map(b => ({ ...b }));
-        const blocksMap = new Map(newBlocks.map(b => [b.id, b]));
-        const currentBlock = blocksMap.get(id)!;
-        
-        const isNowCollapsed = !currentBlock.isCollapsed;
-        currentBlock.isCollapsed = isNowCollapsed;
+      const currentBlock = allBlocksCopy.get(id);
+      if (!currentBlock) return prev;
 
-        const connections = chat.connections;
-        const getChildrenIds = (pid: string) => connections.filter(c => c.from === pid).map(c => c.to);
+      const isNowCollapsed = !currentBlock.isCollapsed;
+      currentBlock.isCollapsed = isNowCollapsed;
 
-        // Visited set to prevent infinite loops in cyclic graphs
-        const visited = new Set<string>();
+      const getChildrenIds = (pid: string) => allConnections.filter(c => c.from === pid).map(c => c.to);
 
-        const updateVisibility = (parentId: string, shouldHide: boolean) => {
-           if (visited.has(parentId)) return;
-           visited.add(parentId);
+      // Visited set to prevent infinite loops in cyclic graphs
+      const visited = new Set<string>();
 
-           const childrenIds = getChildrenIds(parentId);
-           childrenIds.forEach(childId => {
-             const child = blocksMap.get(childId);
-             if (child) {
-               if (shouldHide) {
-                 // Hiding: Hide child and recursively hide its descendants
-                 child.isHidden = true;
-                 updateVisibility(childId, true);
-               } else {
-                 // Showing: Unhide child
-                 child.isHidden = false;
-                 // Only verify/show descendants if this child is NOT collapsed
-                 if (!child.isCollapsed) {
-                   updateVisibility(childId, false);
-                 }
+      const updateVisibility = (parentId: string, shouldHide: boolean) => {
+         if (visited.has(parentId)) return;
+         visited.add(parentId);
+
+         const childrenIds = getChildrenIds(parentId);
+         childrenIds.forEach(childId => {
+           const child = allBlocksCopy.get(childId);
+           if (child) {
+             if (shouldHide) {
+               child.isHidden = true;
+               updateVisibility(childId, true);
+             } else {
+               child.isHidden = false;
+               if (!child.isCollapsed) {
+                 updateVisibility(childId, false);
                }
              }
-           });
-        };
+           }
+         });
+      };
 
-        // Start recursion from the toggled block
-        updateVisibility(id, isNowCollapsed);
+      updateVisibility(id, isNowCollapsed);
 
-        updated[chatId] = {
-          ...chat,
-          blocks: newBlocks,
-        };
+      // Rebuild chat data from mutated blocks
+      const updated: Record<string, ChatData> = { ...prev };
+      pChatIds.forEach(cid => {
+        const chat = prev[cid];
+        if (!chat) return;
+        const updatedBlocks = chat.blocks.map(b => {
+          const mutated = allBlocksCopy.get(b.id);
+          return mutated ? { ...b, isCollapsed: mutated.isCollapsed, isHidden: mutated.isHidden } : b;
+        });
+        updated[cid] = { ...chat, blocks: updatedBlocks };
       });
+
       return updated;
     });
-  }, []);
+  }, [currentProjectId, projects, pushSnapshot]);
 
   const collapseAll = useCallback(() => {
+    pushSnapshot();
+    // Gather all connections across all chats in the current project
+    const pChatIds = projects[currentProjectId]?.chatIds || [];
+
     setChatsData(prev => {
+      // Collect ALL connections across project chats to determine children
+      const allChildIds = new Set<string>();
+      pChatIds.forEach(cid => {
+        const chat = prev[cid];
+        if (chat) {
+          chat.connections.forEach(c => allChildIds.add(c.to));
+        }
+      });
+
       const updated: Record<string, ChatData> = {};
       Object.entries(prev).forEach(([chatId, chat]) => {
-        // Find all blocks that are destinations of a connection
-        const childIds = new Set(chat.connections.map(c => c.to));
-        
-        updated[chatId] = {
-          ...chat,
-          blocks: chat.blocks.map(b => ({
-            ...b,
-            isCollapsed: true, // Collapse the node itself (show small preview)
-            isHidden: childIds.has(b.id) // Hide if it is a child
-          })),
-        };
+        // Only process chats in the current project
+        if (pChatIds.includes(chatId)) {
+          updated[chatId] = {
+            ...chat,
+            blocks: chat.blocks.map(b => ({
+              ...b,
+              isCollapsed: true, // Collapse the node itself (show small preview)
+              isHidden: allChildIds.has(b.id) // Hide if it is a child in any project connection
+            })),
+          };
+        } else {
+          updated[chatId] = chat;
+        }
       });
       return updated;
     });
     setCurrentTool('select');
-  }, [setCurrentTool]);
+  }, [setCurrentTool, currentProjectId, projects, pushSnapshot]);
 
   const expandAll = useCallback(() => {
+    pushSnapshot();
     setChatsData(prev => {
       const updated: Record<string, ChatData> = {};
       Object.entries(prev).forEach(([chatId, chat]) => {
         updated[chatId] = {
           ...chat,
-          blocks: chat.blocks.map(b => 
+          blocks: chat.blocks.map(b =>
             ({ ...b, isCollapsed: false, isHidden: false })
           ),
         };
@@ -654,7 +786,7 @@ export default function Home() {
       return updated;
     });
     setCurrentTool('select');
-  }, [setCurrentTool]);
+  }, [setCurrentTool, pushSnapshot]);
 
   const addConnection = useCallback((
     fromId: string,
@@ -662,11 +794,14 @@ export default function Home() {
     toId: string,
     toPos: ConnectionPosition
   ) => {
-    const exists = connections.some(
+    // Check ALL displayed connections (cross-chat) for duplicates, not just current chat
+    const exists = displayedConnections.some(
       c => c.from === fromId && c.to === toId
     );
     if (!exists) {
-      const fromBlock = blocks.find(b => b.id === fromId);
+      pushSnapshot();
+      // Look up the block across all displayed blocks (may be in another chat)
+      const fromBlock = displayedBlocks.find(b => b.id === fromId);
       const newConnection: Connection = {
         from: fromId,
         fromPos,
@@ -677,38 +812,44 @@ export default function Home() {
       updateCurrentChatData({ connections: [...connections, newConnection] });
       showToast('Connected!');
     }
-  }, [blocks, connections, showToast, updateCurrentChatData]);
+  }, [displayedBlocks, displayedConnections, connections, showToast, updateCurrentChatData, pushSnapshot]);
 
   const deleteConnection = useCallback((fromId: string, toId: string) => {
+    pushSnapshot();
     updateCurrentChatData({
       connections: connections.filter(c => !(c.from === fromId && c.to === toId))
     });
     showToast('Connection removed');
-  }, [connections, updateCurrentChatData, showToast]);
+  }, [connections, updateCurrentChatData, showToast, pushSnapshot]);
 
   const mergeBlocks = useCallback((sourceId: string, targetId: string) => {
     // We need to look in displayedBlocks which combines all chats in project
     const sourceBlock = displayedBlocks.find(b => b.id === sourceId);
     const targetBlock = displayedBlocks.find(b => b.id === targetId);
-    
+
     if (sourceBlock && targetBlock && sourceId !== targetId) {
+      pushSnapshot();
+      skipSnapshotRef.current = true;
       const mergedText = `${targetBlock.text}\n\n---\n\n${sourceBlock.text}`;
-      
+
       // Update the target block and delete the source block
       updateBlock(targetId, { text: mergedText });
       deleteBlock(sourceId);
-      
+      skipSnapshotRef.current = false;
+
       showToast('Nodes merged successfully!');
     }
-  }, [displayedBlocks, updateBlock, deleteBlock, showToast]);
+  }, [displayedBlocks, updateBlock, deleteBlock, showToast, pushSnapshot]);
 
   const clearCanvas = useCallback(() => {
     if (confirm('Clear canvas?')) {
+      pushSnapshot();
       updateCurrentChatData({ blocks: [], connections: [], highlights: [] });
     }
-  }, [updateCurrentChatData]);
+  }, [updateCurrentChatData, pushSnapshot]);
 
   const rearrangeBlocks = useCallback((optimizeConnections = false) => {
+    pushSnapshot();
     const projectChatIds = projects[currentProjectId]?.chatIds || [];
     const allBlocks = projectChatIds.flatMap(id => (chatsData[id]?.blocks || [])).filter(b => !b.isHidden);
     const allConnections = projectChatIds.flatMap(id => (chatsData[id]?.connections || []));
@@ -836,7 +977,7 @@ export default function Home() {
 
     setCurrentTool('select');
     showToast(optimizeConnections ? 'Rearranged with auto-flipped dots!' : 'Rearranged with parents on the left!');
-  }, [currentProjectId, projects, chatsData, setCurrentTool, showToast]);
+  }, [currentProjectId, projects, chatsData, setCurrentTool, showToast, pushSnapshot]);
 
 
 
@@ -885,6 +1026,20 @@ export default function Home() {
     });
     setSelectionPopup(prev => ({ ...prev, visible: false })); // Hide selection popup
   }, []);
+
+  // Navigate from a chat highlight to the corresponding block on the canvas
+  const handleHighlightNavigate = useCallback((messageId: string, startOffset: number, endOffset: number) => {
+    // Find the block that matches this highlight's source location
+    const block = displayedBlocks.find(
+      b => b.messageId === messageId && b.startOffset === startOffset && b.endOffset === endOffset
+    );
+    if (block) {
+      setSelectedBlock(block.id);
+      // Tell the X6 graph to center on this block
+      window.dispatchEvent(new CustomEvent('x6-focus-block', { detail: { blockId: block.id } }));
+      showToast('Navigated to block on canvas');
+    }
+  }, [displayedBlocks, showToast]);
 
   const handleSelectionPopupColorClick = useCallback((color: BlockColor) => {
     if (selectionPopup.text) {
@@ -1096,7 +1251,8 @@ export default function Home() {
         },
       }));
 
-      // Switch to the new chat
+      // Switch to the new chat AND the project (so project context is picked up)
+      setCurrentProjectId(projectId);
       setCurrentChatId(newChatId);
       setSelectedBlock(null);
       setCurrentTool('text');
@@ -1421,6 +1577,403 @@ export default function Home() {
     }
   }, [currentChatId, currentProjectId, projects, showToast]);
 
+  // Decision mode handlers
+  const handleStartDecision = useCallback(() => {
+    setIsDecisionMode(true);
+    setDecisionNodeIds([]);
+  }, []);
+
+  const handleCancelDecision = useCallback(() => {
+    setIsDecisionMode(false);
+    setDecisionNodeIds([]);
+  }, []);
+
+  const handleCreateNodeFromDecision = useCallback((content: string, color: BlockColor, stepKey: string) => {
+    // Get the label for the node
+    const labels: Record<string, string> = {
+      'question': 'Decision',
+      'context': 'Context',
+      'worst-case': 'Worst Case',
+      'prevention': 'Prevention',
+      'best-case': 'Best Case',
+      'inaction': 'Cost of Inaction',
+    };
+
+    const label = labels[stepKey] || stepKey;
+    const truncated = content.length > 150 ? content.substring(0, 150) + '...' : content;
+    const nodeText = `${label}: ${truncated}`;
+
+    // Calculate position - tree layout with Decision at top, branches below
+    const nodeIndex = decisionNodeIds.length;
+    let x = 0, y = 0;
+
+    // Layout: Decision (top center) -> Context (below) -> Worst/Best (split) -> Prevention/Inaction (under each)
+    switch (stepKey) {
+      case 'question':
+        x = 300; y = 50;
+        break;
+      case 'context':
+        x = 300; y = 200;
+        break;
+      case 'worst-case':
+        x = 80; y = 350;
+        break;
+      case 'prevention':
+        x = 80; y = 500;
+        break;
+      case 'best-case':
+        x = 520; y = 350;
+        break;
+      case 'inaction':
+        x = 520; y = 500;
+        break;
+      default:
+        x = 50 + (nodeIndex % 2) * 280;
+        y = 50 + Math.floor(nodeIndex / 2) * 150;
+    }
+
+    // Create the block
+    const id = `block-${++blockIdRef.current}`;
+    const newBlock: Block = {
+      id,
+      text: nodeText,
+      color,
+      x,
+      y,
+      chatId: currentChatId,
+      isEditing: false,
+    };
+
+    // Create connections based on the step (parent-child relationships)
+    const newConnections: Connection[] = [];
+
+    // Connection mapping: which node connects to which
+    const connectionMap: Record<string, { parentStep: string; fromPos: ConnectionPosition; toPos: ConnectionPosition }> = {
+      'context': { parentStep: 'question', fromPos: 'bottom', toPos: 'top' },
+      'worst-case': { parentStep: 'context', fromPos: 'bottom', toPos: 'top' },
+      'best-case': { parentStep: 'context', fromPos: 'bottom', toPos: 'top' },
+      'prevention': { parentStep: 'worst-case', fromPos: 'bottom', toPos: 'top' },
+      'inaction': { parentStep: 'best-case', fromPos: 'bottom', toPos: 'top' },
+    };
+
+    const connectionInfo = connectionMap[stepKey];
+    if (connectionInfo && decisionNodeIds.length > 0) {
+      // Find the parent node ID
+      const stepOrder = ['question', 'context', 'worst-case', 'prevention', 'best-case', 'inaction'];
+      const parentStepIndex = stepOrder.indexOf(connectionInfo.parentStep);
+      if (parentStepIndex >= 0 && parentStepIndex < decisionNodeIds.length) {
+        const parentId = decisionNodeIds[parentStepIndex];
+        newConnections.push({
+          from: parentId,
+          fromPos: connectionInfo.fromPos,
+          to: id,
+          toPos: connectionInfo.toPos,
+          color,
+        });
+      }
+    }
+
+    // Update with new block and connections
+    updateCurrentChatData({
+      blocks: [...blocks, newBlock],
+      connections: [...connections, ...newConnections]
+    });
+    setDecisionNodeIds(prev => [...prev, id]);
+  }, [blocks, connections, currentChatId, decisionNodeIds, updateCurrentChatData]);
+
+  const handleDecisionComplete = useCallback(async (decisionData: DecisionData) => {
+    // Create a new project for this decision
+    try {
+      // Build project context from Fear Setting framework answers
+      const projectContext = `Decision: ${decisionData.question}
+
+Context: ${decisionData.context}
+
+Worst Case Scenario: ${decisionData.worstCase}
+
+Prevention/Mitigation: ${decisionData.prevention}
+
+Best Case Scenario: ${decisionData.bestCase}
+
+Cost of Inaction: ${decisionData.costOfInaction}
+
+Final Decision: ${decisionData.choice}
+Confidence: ${decisionData.confidence}/10`;
+
+      const newProjectRes = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: decisionData.question,
+          isDecision: true,
+          decisionData,
+          context: projectContext  // Include the Fear Setting context
+        }),
+      });
+      const newProject: ProjectWithDecision = await newProjectRes.json();
+
+      // Create a chat for this decision project
+      const newChatRes = await fetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: decisionData.question,
+          projectId: newProject.id,
+        }),
+      });
+      const newChatData = await newChatRes.json();
+
+      // Move current canvas blocks to the new chat
+      const currentBlocks = blocks;
+      const currentConnections = connections;
+
+      // Update the new chat with the decision blocks
+      await fetch(`/api/chats/${newChatData.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blocks: currentBlocks,
+          connections: currentConnections,
+        }),
+      });
+
+      // Update local state - explicitly include context from Fear Setting answers
+      setProjects(prev => ({
+        ...prev,
+        [newProject.id]: {
+          ...newProject,
+          chatIds: [newChatData.id],
+          context: projectContext  // Ensure context is set in local state
+        }
+      }));
+
+      setChatsData(prev => ({
+        ...prev,
+        [newChatData.id]: {
+          title: newChatData.title,
+          preview: decisionData.question,
+          messages: [],
+          blocks: currentBlocks,
+          connections: currentConnections,
+          highlights: [],
+        }
+      }));
+
+      // Switch to the new decision project/chat
+      setCurrentProjectId(newProject.id);
+      setCurrentChatId(newChatData.id);
+      setIsDecisionMode(false);
+      setDecisionNodeIds([]);
+
+      // Update cache - include context from Fear Setting answers
+      saveToCache(
+        { ...projects, [newProject.id]: { ...newProject, chatIds: [newChatData.id], context: projectContext } },
+        {
+          ...chatsData,
+          [newChatData.id]: {
+            title: newChatData.title,
+            preview: decisionData.question,
+            messages: [],
+            blocks: currentBlocks,
+            connections: currentConnections,
+            highlights: [],
+          }
+        }
+      );
+
+      const reviewDate = new Date(decisionData.reviewDate);
+      showToast(`Decision saved! Review on ${reviewDate.toLocaleDateString()}`);
+    } catch (error) {
+      console.error('Error creating decision:', error);
+      showToast('Failed to save decision');
+    }
+  }, [blocks, connections, projects, chatsData, showToast, saveToCache]);
+
+  // ============================================
+  // CANVAS SYNTHESIS HANDLERS
+  // ============================================
+
+  const handleSynthesizeDecision = useCallback(async () => {
+    if (displayedBlocks.length < 3) {
+      showToast('Add at least 3 blocks to your canvas to synthesize a decision');
+      return;
+    }
+
+    setShowSynthesisModal(true);
+    setIsSynthesizing(true);
+    setSynthesisResult(null);
+
+    try {
+      // Get API key from localStorage
+      const geminiApiKey = typeof window !== 'undefined'
+        ? localStorage.getItem('cercily-gemini-api-key')
+        : null;
+
+      // Prepare canvas data for the API
+      const canvasData = {
+        projectId: currentProjectId,
+        projectName: projects[currentProjectId]?.title || 'Untitled Project',
+        nodes: displayedBlocks.map(b => ({
+          id: b.id,
+          content: b.text,
+          color: b.color,
+        })),
+        connections: displayedConnections.map(c => {
+          const fromBlock = displayedBlocks.find(b => b.id === c.from);
+          const toBlock = displayedBlocks.find(b => b.id === c.to);
+          return {
+            fromId: c.from,
+            toId: c.to,
+            fromContent: fromBlock?.text || '',
+            toContent: toBlock?.text || '',
+          };
+        }),
+      };
+
+      const response = await fetch('/api/decisions/synthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          canvasData,
+          apiKey: geminiApiKey,
+          modelName: activeChatModel,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to synthesize decision');
+      }
+
+      const data = await response.json();
+      setSynthesisResult(data.synthesis);
+    } catch (error) {
+      console.error('Error synthesizing decision:', error);
+      showToast('Failed to synthesize decision. Please try again.');
+      setShowSynthesisModal(false);
+    } finally {
+      setIsSynthesizing(false);
+    }
+  }, [displayedBlocks, displayedConnections, currentProjectId, projects, activeChatModel, showToast]);
+
+  const handleCommitSynthesizedDecision = useCallback((decision: Omit<SynthesizedDecision, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date().toISOString();
+    const newDecision: SynthesizedDecision = {
+      ...decision,
+      id: `decision-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // Save to local state and localStorage
+    setSynthesizedDecisions(prev => {
+      const updated = [...prev, newDecision];
+      // Persist to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cercily-synthesized-decisions', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    setShowSynthesisModal(false);
+    setSynthesisResult(null);
+
+    const reviewDate = new Date(decision.reviewDate);
+    showToast(`Decision committed! Review on ${reviewDate.toLocaleDateString()}`);
+  }, [showToast]);
+
+  const handleNavigateToNode = useCallback((nodeId: string) => {
+    // Find the block and select it
+    const block = displayedBlocks.find(b => b.id === nodeId);
+    if (block) {
+      setSelectedBlock(nodeId);
+      // If the block belongs to a different chat, switch to it
+      if (block.chatId && block.chatId !== currentChatId) {
+        handleSelectChat(block.chatId);
+      }
+      showToast('Navigated to node');
+    }
+  }, [displayedBlocks, currentChatId, handleSelectChat, showToast]);
+
+  // Load synthesized decisions from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('cercily-synthesized-decisions');
+      if (stored) {
+        try {
+          setSynthesizedDecisions(JSON.parse(stored));
+        } catch (e) {
+          console.warn('Failed to load synthesized decisions from localStorage:', e);
+        }
+      }
+    }
+  }, []);
+
+  const handleOpenDecisionJournal = useCallback(() => {
+    setShowDecisionJournal(true);
+  }, []);
+
+  const handleReviewDecision = useCallback((decisionId: string) => {
+    const decision = synthesizedDecisions.find(d => d.id === decisionId);
+    if (decision) {
+      setReviewingDecision(decision);
+      setShowReviewModal(true);
+      setShowDecisionJournal(false);
+    }
+  }, [synthesizedDecisions]);
+
+  const handleViewDecision = useCallback((decisionId: string) => {
+    const decision = synthesizedDecisions.find(d => d.id === decisionId);
+    if (decision) {
+      // Navigate to the project if available
+      if (decision.projectId && projects[decision.projectId]) {
+        handleSelectProject(decision.projectId);
+        setShowDecisionJournal(false);
+        showToast('Navigated to decision project');
+      } else {
+        // Project not found - open the review modal to show decision details
+        setReviewingDecision(decision);
+        setShowReviewModal(true);
+        setShowDecisionJournal(false);
+      }
+    }
+  }, [synthesizedDecisions, projects, handleSelectProject, showToast]);
+
+  const handleSubmitReview = useCallback((decisionId: string, review: {
+    actualOutcome: string;
+    learnings: string;
+    outcomeRating: 'good' | 'neutral' | 'bad';
+  }) => {
+    const now = new Date().toISOString();
+
+    setSynthesizedDecisions(prev => {
+      const updated = prev.map(d => {
+        if (d.id === decisionId) {
+          return {
+            ...d,
+            actualOutcome: review.actualOutcome,
+            learnings: review.learnings,
+            outcomeRating: review.outcomeRating,
+            reviewedAt: now,
+            updatedAt: now,
+          };
+        }
+        return d;
+      });
+
+      // Persist to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cercily-synthesized-decisions', JSON.stringify(updated));
+      }
+
+      return updated;
+    });
+
+    setShowReviewModal(false);
+    setReviewingDecision(null);
+    showToast('Review saved! Your reflections have been recorded.');
+  }, [showToast]);
+
   // Hide popups on click outside
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
@@ -1454,29 +2007,13 @@ export default function Home() {
   // Show loading screen while fetching data
   if (isLoading) {
     return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        flexDirection: 'column',
-        gap: '16px',
-        color: 'var(--text-secondary)',
-      }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          border: '3px solid var(--border-color)',
-          borderTopColor: 'var(--accent-color)',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-        }} />
-        <p>Loading from Notion...</p>
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+      <div className="loading-overlay">
+        <CircularProgress
+          size={64}
+          strokeWidth={4}
+          text="Loading your thoughts..."
+          subtext="Connecting to Cercily"
+        />
       </div>
     );
   }
@@ -1506,22 +2043,38 @@ export default function Home() {
             onRenameProject={handleRenameProject}
             onRenameChat={handleRenameChat}
             onOpenProjectContext={handleOpenProjectContext}
+            onStartDecision={handleStartDecision}
+            onOpenDecisionJournal={handleOpenDecisionJournal}
+            pendingReviewCount={synthesizedDecisions.filter(d => {
+              if (d.reviewedAt) return false;
+              const reviewDate = new Date(d.reviewDate);
+              return reviewDate <= new Date();
+            }).length}
           />
         )}
         <div className="panes-container">
           <div className="chat-pane" style={{ width: `calc(${chatPaneWidth}% - 4px)` }}>
-            <ChatView
-              key={currentChatId}
-              messages={messages}
-              highlights={highlights}
-              onTextSelection={handleTextSelection}
-              onHighlightClick={handleHighlightClick}
-              onSendMessage={handleSendMessage}
-              isSendingMessage={isSendingMessage}
-              includeContext={includeContext}
-              onToggleContext={() => setIncludeContext(prev => !prev)}
-              hasContext={!!projects[currentProjectId]?.context}
-            />
+            {isDecisionMode ? (
+              <DecisionFlow
+                onComplete={handleDecisionComplete}
+                onCancel={handleCancelDecision}
+                onCreateNode={handleCreateNodeFromDecision}
+              />
+            ) : (
+              <ChatView
+                key={currentChatId}
+                messages={messages}
+                highlights={highlights}
+                onTextSelection={handleTextSelection}
+                onHighlightClick={handleHighlightClick}
+                onHighlightNavigate={handleHighlightNavigate}
+                onSendMessage={handleSendMessage}
+                isSendingMessage={isSendingMessage}
+                includeContext={includeContext}
+                onToggleContext={() => setIncludeContext(prev => !prev)}
+                hasContext={!!projects[currentProjectId]?.context}
+              />
+            )}
           </div>
           <ResizeHandle
             onResize={(newLeftWidth) => {
@@ -1564,6 +2117,12 @@ export default function Home() {
               onRearrange={rearrangeBlocks}
               showOutline={showOutline}
               onToggleOutline={() => setShowOutline(prev => !prev)}
+              onSynthesizeDecision={handleSynthesizeDecision}
+              onUndo={canvasUndo}
+              onRedo={canvasRedo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onPushSnapshot={pushSnapshot}
             />
           </div>
         </div>
@@ -1600,6 +2159,48 @@ export default function Home() {
         projectTitle={projects[contextModalProjectId]?.title || ''}
         initialContext={projects[contextModalProjectId]?.context || ''}
         onSave={handleSaveProjectContext}
+      />
+
+      {/* Saving indicator */}
+      {isSaving && (
+        <div className="saving-indicator">
+          <CircularProgress size={24} strokeWidth={3} text="Saving..." />
+        </div>
+      )}
+
+      {/* Synthesis Modal */}
+      <SynthesisModal
+        isOpen={showSynthesisModal}
+        onClose={() => {
+          setShowSynthesisModal(false);
+          setSynthesisResult(null);
+        }}
+        synthesis={synthesisResult}
+        isLoading={isSynthesizing}
+        projectId={currentProjectId}
+        projectName={projects[currentProjectId]?.title || 'Untitled Project'}
+        onCommit={handleCommitSynthesizedDecision}
+        onNavigateToNode={handleNavigateToNode}
+      />
+
+      {/* Decision Journal */}
+      <DecisionJournalView
+        isOpen={showDecisionJournal}
+        onClose={() => setShowDecisionJournal(false)}
+        decisions={synthesizedDecisions}
+        onReviewDecision={handleReviewDecision}
+        onViewDecision={handleViewDecision}
+      />
+
+      {/* Review Modal */}
+      <ReviewModal
+        isOpen={showReviewModal}
+        onClose={() => {
+          setShowReviewModal(false);
+          setReviewingDecision(null);
+        }}
+        decision={reviewingDecision}
+        onSubmitReview={handleSubmitReview}
       />
     </>
   );

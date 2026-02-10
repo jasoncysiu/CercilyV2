@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Block, Connection, BlockColor, ToolType, ConnectionPosition } from '@/lib/types';
 import CanvasBlock from './CanvasBlock';
 import OutlineView from './OutlineView';
-import { Type, MousePointer2, Link, Maximize2, Minimize2, Sparkles, LayoutList, Trash2, Minus, Plus, Save } from 'lucide-react'; // Import Lucide icons
+import { Type, MousePointer2, Link, Maximize2, Minimize2, Sparkles, LayoutList, Trash2, Minus, Plus, Save, Lightbulb, Undo2, Redo2 } from 'lucide-react';
 
 interface CanvasPanelProps {
   blocks: Block[];
@@ -35,6 +35,12 @@ interface CanvasPanelProps {
   showOutline?: boolean;
 
   onToggleOutline?: () => void;
+  onSynthesizeDecision?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onPushSnapshot?: () => void;
 }
 
 
@@ -66,10 +72,18 @@ export default function CanvasPanel({
   onRearrange,
   showOutline,
   onToggleOutline,
+  onSynthesizeDecision,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  onPushSnapshot,
 }: CanvasPanelProps) {
 
   const canvasAreaRef = useRef<HTMLDivElement>(null);
   const canvasContentRef = useRef<HTMLDivElement>(null); // This will now be the transformed wrapper
+  const onPushSnapshotRef = useRef(onPushSnapshot);
+  onPushSnapshotRef.current = onPushSnapshot;
   const [pan, setPan] = useState({ x: 0, y: 0 });
 
   // Multi-select state (local to avoid parent changes)
@@ -82,6 +96,8 @@ export default function CanvasPanel({
   // Smooth drag: track visual offset during drag (not committed to state until mouseup)
   const [dragDelta, setDragDelta] = useState({ x: 0, y: 0 });
   const dragStartBlockPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
+  // Track dragged block IDs synchronously for visual rendering (avoids stale state issues)
+  const draggedBlockIdsRef = useRef<Set<string>>(new Set());
 
   // Marquee selection state
   const [isMarqueeSelecting, setIsMarqueeSelecting] = useState(false);
@@ -167,6 +183,26 @@ export default function CanvasPanel({
   // Keyboard shortcuts: ESC to dismiss, Arrow+Shift to extend selection
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Undo/Redo: skip if editing text
+      const tag = (document.activeElement?.tagName || '').toLowerCase();
+      if (tag !== 'textarea' && tag !== 'input') {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          onUndo?.();
+          return;
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
+          e.preventDefault();
+          onRedo?.();
+          return;
+        }
+        if (e.ctrlKey && e.key === 'y') {
+          e.preventDefault();
+          onRedo?.();
+          return;
+        }
+      }
+
       // ESC: dismiss menus and clear selection
       if (e.key === 'Escape') {
         setContextMenu(null);
@@ -234,12 +270,13 @@ export default function CanvasPanel({
 
         if (bestBlock) {
           e.preventDefault();
+          const targetBlockId = (bestBlock as Block).id;
           if (e.shiftKey) {
             // Extend selection
-            setSelectedBlockIds(prev => new Set([...prev, bestBlock!.id]));
+            setSelectedBlockIds(prev => new Set([...Array.from(prev), targetBlockId]));
           } else {
             // Move selection
-            setSelectedBlockIds(new Set([bestBlock.id]));
+            setSelectedBlockIds(new Set([targetBlockId]));
           }
         }
       }
@@ -262,7 +299,7 @@ export default function CanvasPanel({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [blocks, selectedBlockIds, onDeleteBlock, onDeleteBlocks]);
+  }, [blocks, selectedBlockIds, onDeleteBlock, onDeleteBlocks, onUndo, onRedo]);
 
   const getConnPoint = useCallback((blockId: string, pos: ConnectionPosition) => {
     if (typeof document === 'undefined') return { x: 0, y: 0 };
@@ -430,14 +467,24 @@ export default function CanvasPanel({
 
     setIsDragging(true);
     setDragDelta({ x: 0, y: 0 }); // Reset drag delta
+    // Sync ref immediately so mousemove/mouseup handlers see the drag state
+    dragInfoRef.current.isDragging = true;
+    dragInfoRef.current.dragDelta = { x: 0, y: 0 };
     if (contextMenu) setContextMenu(null);
     if (blockContextMenu) setBlockContextMenu(null);
 
     dragStartPosRef.current = { x: e.clientX, y: e.clientY };
 
+    // Determine which blocks to move (synchronously for visual rendering)
+    const blocksToMove = selectedBlockIds.has(blockId) ? new Set(selectedBlockIds) : new Set([blockId]);
+
+    // Store in ref synchronously for visual feedback (avoids stale state issues)
+    draggedBlockIdsRef.current = blocksToMove;
+    // Also sync selectedBlockIds on dragInfoRef so mousemove/mouseup see correct set
+    dragInfoRef.current.selectedBlockIds = blocksToMove;
+
     // Store initial positions for all selected blocks (for batch drag)
     const posMap = new Map<string, { x: number; y: number }>();
-    const blocksToMove = selectedBlockIds.has(blockId) ? selectedBlockIds : new Set([blockId]);
     blocksToMove.forEach(id => {
       const b = blocks.find(bl => bl.id === id);
       if (b) posMap.set(id, { x: b.x, y: b.y });
@@ -445,6 +492,7 @@ export default function CanvasPanel({
     // Also add the clicked block if not already
     if (!posMap.has(blockId)) {
       posMap.set(blockId, { x: block.x, y: block.y });
+      draggedBlockIdsRef.current.add(blockId);
     }
     dragStartBlockPositions.current = posMap;
 
@@ -473,6 +521,7 @@ export default function CanvasPanel({
     const block = blocks.find(b => b.id === blockId);
     if (!block) return;
 
+    onPushSnapshot?.();
     setIsResizing(true);
     setResizingBlockId(blockId);
     setResizeStartPos({ x: e.clientX, y: e.clientY });
@@ -674,6 +723,7 @@ export default function CanvasPanel({
 
         // Commit positions for all selected blocks (batch update)
         if (dist >= 5 && dragStartBlockPositions.current.size > 0) {
+          onPushSnapshotRef.current?.();
           const delta = { x: dragDelta.x, y: dragDelta.y };
           dragStartBlockPositions.current.forEach((startPos, blockId) => {
             onUpdateBlock(blockId, {
@@ -683,9 +733,10 @@ export default function CanvasPanel({
           });
         }
 
-        // Reset drag delta
+        // Reset drag delta and refs
         setDragDelta({ x: 0, y: 0 });
         dragStartBlockPositions.current.clear();
+        draggedBlockIdsRef.current.clear();
 
         if (dist < 5 && selectedBlockIds.size > 0) {
           // Detected a click on the block - show the bar
@@ -771,6 +822,21 @@ export default function CanvasPanel({
   }, [onUpdateBlock, onAddConnection, zoom, pan]);
 
 
+  // Prevent browser zoom on pinch gesture (must use native event with passive: false)
+  useEffect(() => {
+    const canvasArea = canvasAreaRef.current;
+    if (!canvasArea) return;
+
+    const handleWheelNative = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault(); // Prevent browser zoom
+      }
+    };
+
+    canvasArea.addEventListener('wheel', handleWheelNative, { passive: false });
+    return () => canvasArea.removeEventListener('wheel', handleWheelNative);
+  }, []);
+
   const handleWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
         if (onZoomChange) {
@@ -791,34 +857,168 @@ export default function CanvasPanel({
   const visibleConnections = connections.filter(c => visibleBlockIds.has(c.from) && visibleBlockIds.has(c.to));
   const areAllCollapsed = visibleBlocks.length > 0 && visibleBlocks.every(b => b.isCollapsed);
 
+  // Calculate connection point info for each block (for collapse/expand buttons)
+  const getConnectionPointsForBlock = useCallback((blockId: string) => {
+    const positions: ConnectionPosition[] = ['top', 'bottom', 'left', 'right'];
+    const result: Record<ConnectionPosition, { hasConnection: boolean; connectedBlockIds: string[]; areAllCollapsed: boolean; hasChildren: boolean }> = {
+      top: { hasConnection: false, connectedBlockIds: [], areAllCollapsed: false, hasChildren: false },
+      bottom: { hasConnection: false, connectedBlockIds: [], areAllCollapsed: false, hasChildren: false },
+      left: { hasConnection: false, connectedBlockIds: [], areAllCollapsed: false, hasChildren: false },
+      right: { hasConnection: false, connectedBlockIds: [], areAllCollapsed: false, hasChildren: false },
+    };
+
+    // Find all connections from this block (outgoing = children)
+    connections.forEach(conn => {
+      if (conn.from === blockId) {
+        const pos = conn.fromPos;
+        result[pos].hasConnection = true;
+        result[pos].hasChildren = true; // This is an outgoing connection (child)
+        result[pos].connectedBlockIds.push(conn.to);
+      }
+    });
+
+    return result;
+  }, [connections]);
+
+  // Check if all descendants from a position are hidden (used for button state)
+  const areAllDescendantsHidden = useCallback((blockId: string, pos: ConnectionPosition): boolean => {
+    const connInfo = getConnectionPointsForBlock(blockId);
+    if (!connInfo[pos].hasChildren) return false;
+
+    // Get all descendants recursively
+    const visited = new Set<string>();
+    const queue: string[] = [];
+
+    // Start with immediate children from this position
+    connInfo[pos].connectedBlockIds.forEach(id => {
+      if (connections.some(conn => conn.from === blockId && conn.to === id)) {
+        queue.push(id);
+        visited.add(id);
+      }
+    });
+
+    // BFS to find all descendants
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      connections.forEach(conn => {
+        if (conn.from === currentId && !visited.has(conn.to)) {
+          visited.add(conn.to);
+          queue.push(conn.to);
+        }
+      });
+    }
+
+    if (visited.size === 0) return false;
+
+    // Check if all descendants are hidden
+    return Array.from(visited).every(id => {
+      const block = blocks.find(b => b.id === id);
+      return block?.isHidden;
+    });
+  }, [connections, blocks, getConnectionPointsForBlock]);
+
+  // Get all descendants of a block recursively (following outgoing connections)
+  const getAllDescendants = useCallback((startBlockId: string, startPos: ConnectionPosition): string[] => {
+    const descendants: string[] = [];
+    const visited = new Set<string>();
+
+    // Find immediate children from the starting position
+    const getChildrenFromBlock = (blockId: string): string[] => {
+      const children: string[] = [];
+      connections.forEach(conn => {
+        // Follow connections where this block is the "from" (parent)
+        if (conn.from === blockId && !visited.has(conn.to)) {
+          children.push(conn.to);
+        }
+      });
+      return children;
+    };
+
+    // Start with immediate connections from the clicked position
+    const connInfo = getConnectionPointsForBlock(startBlockId);
+    const immediateChildren = connInfo[startPos].connectedBlockIds.filter(id => {
+      // Only include blocks that are connected FROM this block (children, not parents)
+      return connections.some(conn => conn.from === startBlockId && conn.to === id);
+    });
+
+    // BFS to find all descendants
+    const queue = [...immediateChildren];
+    immediateChildren.forEach(id => visited.add(id));
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      descendants.push(currentId);
+
+      const children = getChildrenFromBlock(currentId);
+      children.forEach(childId => {
+        if (!visited.has(childId)) {
+          visited.add(childId);
+          queue.push(childId);
+        }
+      });
+    }
+
+    return descendants;
+  }, [connections, getConnectionPointsForBlock]);
+
+  // Handler to toggle visibility of all blocks connected at a specific position
+  const handleToggleConnectedBlocks = useCallback((blockId: string, pos: ConnectionPosition) => {
+    // Get all descendants recursively
+    const allDescendants = getAllDescendants(blockId, pos);
+
+    if (allDescendants.length === 0) return;
+
+    // Check if all descendants are currently hidden
+    const areAllCurrentlyHidden = allDescendants.every(id => {
+      const block = blocks.find(b => b.id === id);
+      return block?.isHidden;
+    });
+
+    // Toggle: if all hidden, show all; otherwise hide all
+    allDescendants.forEach(id => {
+      onUpdateBlock(id, { isHidden: !areAllCurrentlyHidden });
+    });
+  }, [getAllDescendants, blocks, onUpdateBlock]);
+
   return (
     <div className="canvas-panel">
       <div className="canvas-header">
         <div className="canvas-title">Canvas <span style={{ fontSize: '12px', opacity: 0.6 }}>({visibleBlocks.length})</span></div>
         <div className="canvas-tools">
-          <button className={`canvas-tool-btn ${currentTool === 'text' ? 'active' : ''}`} onClick={() => onSetTool('text')} title="Text Tool (Click to add cards)"><Type size={18} /></button>
-          <button className={`canvas-tool-btn ${currentTool === 'select' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'select' ? 'text' : 'select')} title="Select & Move"><MousePointer2 size={18} /></button>
-          <button className={`canvas-tool-btn ${currentTool === 'connect' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'connect' ? 'text' : 'connect')} title="Connect blocks"><Link size={18} /></button>
+          <button className={`canvas-tool-btn ${currentTool === 'text' ? 'active' : ''}`} onClick={() => onSetTool('text')} title="Text Tool (Click to add cards)"><Type size={16} /></button>
+          <button className={`canvas-tool-btn ${currentTool === 'select' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'select' ? 'text' : 'select')} title="Select & Move"><MousePointer2 size={16} /></button>
+          <button className={`canvas-tool-btn ${currentTool === 'connect' ? 'active' : ''}`} onClick={() => onSetTool(currentTool === 'connect' ? 'text' : 'connect')} title="Connect blocks"><Link size={16} /></button>
           <button 
             className="canvas-tool-btn" 
             onClick={() => { if (areAllCollapsed) onExpandAll?.(); else onCollapseAll?.(); onSetTool('select'); }} 
             title={areAllCollapsed ? 'Expand all' : 'Collapse all'}
           >
-            {areAllCollapsed ? <Maximize2 size={18} /> : <Minimize2 size={18} />}
+            {areAllCollapsed ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
           </button>
-          <button 
-            className="canvas-tool-btn" 
-            onClick={() => onRearrange?.(false)} 
+          <button
+            className="canvas-tool-btn"
+            onClick={() => onRearrange?.(false)}
             onDoubleClick={() => onRearrange?.(true)}
-            title="Single click: Tidy | Double click: Tidy + Auto-flip dots" 
-          ><Sparkles size={18} /></button>
-          <button className={`canvas-tool-btn ${showOutline ? 'active' : ''}`} onClick={onToggleOutline} title="Show Outline"><LayoutList size={18} /></button>
-
-          <button className="canvas-tool-btn" onClick={onClearCanvas} title="Clear canvas"><Trash2 size={18} /></button>
+            title="Single click: Tidy | Double click: Tidy + Auto-flip dots"
+          ><Sparkles size={16} /></button>
+          <button
+            className="canvas-tool-btn synthesize-btn"
+            onClick={onSynthesizeDecision}
+            disabled={visibleBlocks.length < 3}
+            title={visibleBlocks.length < 3 ? "Add at least 3 blocks to synthesize" : "Synthesize Decision from Canvas"}
+            style={{
+              opacity: visibleBlocks.length < 3 ? 0.4 : 1,
+              cursor: visibleBlocks.length < 3 ? 'not-allowed' : 'pointer',
+            }}
+          ><Lightbulb size={16} /></button>
+          <button className={`canvas-tool-btn ${showOutline ? 'active' : ''}`} onClick={onToggleOutline} title="Show Outline"><LayoutList size={16} /></button>
+          <button className="canvas-tool-btn" onClick={onUndo} disabled={!canUndo} title="Undo (Cmd+Z)"><Undo2 size={16} /></button>
+          <button className="canvas-tool-btn" onClick={onRedo} disabled={!canRedo} title="Redo (Cmd+Shift+Z)"><Redo2 size={16} /></button>
+          <button className="canvas-tool-btn" onClick={onClearCanvas} title="Clear canvas"><Trash2 size={16} /></button>
         </div>
       </div>
 
-      <div ref={canvasAreaRef} className={`canvas-area ${currentTool === 'select' ? 'select-mode' : ''}`} 
+      <div ref={canvasAreaRef} className={`canvas-area ${currentTool === 'select' ? 'select-mode' : ''}`}
         onClick={(e) => {
           if (contextMenu) setContextMenu(null);
           if (blockContextMenu) setBlockContextMenu(null);
@@ -829,6 +1029,38 @@ export default function CanvasPanel({
           if (contextMenu) setContextMenu(null);
           if (blockContextMenu) setBlockContextMenu(null);
           handleCanvasMouseDown(e);
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault(); // Prevent browser's default context menu
+
+          // Check if right-clicked on a block
+          const blockEl = (e.target as HTMLElement).closest('.canvas-block');
+          if (blockEl) {
+            const blockId = blockEl.id;
+            // Select the block if not already selected
+            if (!selectedBlockIds.has(blockId)) {
+              setSelectedBlockIds(new Set([blockId]));
+            }
+            // Show block context menu
+            setBlockContextMenu({
+              x: e.clientX,
+              y: e.clientY - 60,
+              blockId
+            });
+          } else if (currentTool === 'text') {
+            // Right-clicked on empty canvas in text mode - show add block menu
+            const rect = canvasAreaRef.current?.getBoundingClientRect();
+            if (rect) {
+              const modelX = (e.clientX - rect.left - pan.x) / zoom - 100;
+              const modelY = (e.clientY - rect.top - pan.y) / zoom - 20;
+              setContextMenu({
+                x: e.clientX,
+                y: e.clientY - 60,
+                modelX,
+                modelY
+              });
+            }
+          }
         }}>
 
         <div ref={canvasContentRef} className="canvas-transform-layer" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
@@ -847,10 +1079,23 @@ export default function CanvasPanel({
             )}
             {visibleBlocks.map(block => {
               const isBlockSelected = selectedBlockIds.has(block.id);
-              const isBlockDragging = isDragging && isBlockSelected;
+              // Use ref for drag visual to avoid stale state issues on first drag
+              const isBlockDragging = isDragging && draggedBlockIdsRef.current.has(block.id);
               // Apply drag delta for smooth visual feedback during drag
               const visualX = isBlockDragging ? block.x + dragDelta.x : block.x;
               const visualY = isBlockDragging ? block.y + dragDelta.y : block.y;
+
+              // Get connection points with proper hidden state for descendants
+              const connPoints = getConnectionPointsForBlock(block.id);
+              const positions: ConnectionPosition[] = ['top', 'bottom', 'left', 'right'];
+              const connectionPointsWithState = positions.reduce((acc, pos) => {
+                acc[pos] = {
+                  ...connPoints[pos],
+                  areAllCollapsed: connPoints[pos].hasChildren ? areAllDescendantsHidden(block.id, pos) : false
+                };
+                return acc;
+              }, {} as Record<ConnectionPosition, { hasConnection: boolean; connectedBlockIds: string[]; areAllCollapsed: boolean }>);
+
               return (
                 <CanvasBlock
                   key={block.id}
@@ -860,6 +1105,7 @@ export default function CanvasPanel({
                   onMouseDown={(e) => handleBlockMouseDown(block.id, e)}
                   onDelete={() => onDeleteBlock(block.id)}
                   onEdit={(newText) => {
+                    onPushSnapshot?.();
                     if (newText.trim() === '') {
                       onDeleteBlock(block.id);
                     } else {
@@ -871,6 +1117,8 @@ export default function CanvasPanel({
                   onToggle={() => { if (onToggleCollapse) onToggleCollapse(block.id); else onUpdateBlock(block.id, { isCollapsed: !block.isCollapsed }); onSetTool('select'); }}
                   isDropTarget={hoveredBlockId === block.id}
                   onResizeMouseDown={handleResizeMouseDown}
+                  connectionPoints={connectionPointsWithState}
+                  onToggleConnectedBlocks={(pos) => handleToggleConnectedBlocks(block.id, pos)}
                 />
               );
             })}

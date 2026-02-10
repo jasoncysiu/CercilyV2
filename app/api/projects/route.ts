@@ -16,8 +16,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { title } = await request.json();
-    const project = await createProject(title || 'New Project');
+    const { title, context } = await request.json();
+    const project = await createProject(title || 'New Project', context);
     return NextResponse.json(project);
   } catch (error) {
     console.error('Error creating project:', error);

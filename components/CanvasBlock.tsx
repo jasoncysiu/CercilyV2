@@ -2,6 +2,14 @@
 
 import { Block, ConnectionPosition } from '@/lib/types';
 import { useRef, useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
+
+// Info about connections at each position
+interface ConnectionPointInfo {
+  hasConnection: boolean;
+  connectedBlockIds: string[];
+  areAllCollapsed: boolean;
+}
 
 interface CanvasBlockProps {
   block: Block;
@@ -15,6 +23,9 @@ interface CanvasBlockProps {
   isDropTarget?: boolean;
   isDragging?: boolean;
   onResizeMouseDown?: (blockId: string, e: React.MouseEvent) => void;
+  // Connection info for collapse/expand buttons
+  connectionPoints?: Record<ConnectionPosition, ConnectionPointInfo>;
+  onToggleConnectedBlocks?: (pos: ConnectionPosition) => void;
 }
 
 export default function CanvasBlock({
@@ -29,6 +40,8 @@ export default function CanvasBlock({
   isDropTarget,
   isDragging,
   onResizeMouseDown,
+  connectionPoints,
+  onToggleConnectedBlocks,
 }: CanvasBlockProps) {
   const displayText = block.text;
   const isCollapsed = block.isCollapsed;
@@ -145,26 +158,57 @@ export default function CanvasBlock({
         </div>
       )}
 
-      <div
-        className="connection-point top"
-        data-pos="top"
-        onMouseDown={handleConnectionMouseDown('top')}
-      />
-      <div
-        className="connection-point bottom"
-        data-pos="bottom"
-        onMouseDown={handleConnectionMouseDown('bottom')}
-      />
-      <div
-        className="connection-point left"
-        data-pos="left"
-        onMouseDown={handleConnectionMouseDown('left')}
-      />
-      <div
-        className="connection-point right"
-        data-pos="right"
-        onMouseDown={handleConnectionMouseDown('right')}
-      />
+      {/* Connection points with optional collapse/expand buttons */}
+      {(['top', 'bottom', 'left', 'right'] as ConnectionPosition[]).map(pos => {
+        const info = connectionPoints?.[pos];
+        const hasConnection = info?.hasConnection;
+        const areAllCollapsed = info?.areAllCollapsed;
+
+        // Determine chevron direction based on position and collapse state
+        const getChevronIcon = () => {
+          if (areAllCollapsed) {
+            // Show expand direction (pointing outward)
+            switch (pos) {
+              case 'top': return <ChevronUp size={10} />;
+              case 'bottom': return <ChevronDown size={10} />;
+              case 'left': return <ChevronLeft size={10} />;
+              case 'right': return <ChevronRight size={10} />;
+            }
+          } else {
+            // Show collapse direction (pointing inward)
+            switch (pos) {
+              case 'top': return <ChevronDown size={10} />;
+              case 'bottom': return <ChevronUp size={10} />;
+              case 'left': return <ChevronRight size={10} />;
+              case 'right': return <ChevronLeft size={10} />;
+            }
+          }
+        };
+
+        return (
+          <div
+            key={pos}
+            className={`connection-point ${pos} ${hasConnection ? 'has-connection' : ''}`}
+            data-pos={pos}
+            onMouseDown={handleConnectionMouseDown(pos)}
+          >
+            {hasConnection && onToggleConnectedBlocks && (
+              <button
+                className={`connection-toggle-btn ${areAllCollapsed ? 'collapsed' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onToggleConnectedBlocks(pos);
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                title={areAllCollapsed ? 'Expand connected blocks' : 'Collapse connected blocks'}
+              >
+                {getChevronIcon()}
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

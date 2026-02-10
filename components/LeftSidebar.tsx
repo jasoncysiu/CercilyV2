@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ProjectItem } from '@/lib/types';
-import { ChevronRight, ChevronDown, Edit, Plus, Trash2, FileText } from 'lucide-react';
+import { ChevronRight, ChevronDown, Edit, Plus, Trash2, FileText, Target, BookOpen } from 'lucide-react';
 
 interface LeftSidebarProps {
   projects: ProjectItem[];
@@ -17,9 +17,12 @@ interface LeftSidebarProps {
   onRenameProject: (projectId: string, newTitle: string) => void;
   onRenameChat: (chatId: string, newTitle: string) => void;
   onOpenProjectContext: (projectId: string) => void;
+  onStartDecision: () => void;
+  onOpenDecisionJournal: () => void;
+  pendingReviewCount?: number;
 }
 
-export default function LeftSidebar({ projects, currentChatId, onSelectChat, onSelectProject, onDeleteChat, onNewProject, onNewChat, onDeleteProject, onNewChatInProject, onRenameProject, onRenameChat, onOpenProjectContext }: LeftSidebarProps) {
+export default function LeftSidebar({ projects, currentChatId, onSelectChat, onSelectProject, onDeleteChat, onNewProject, onNewChat, onDeleteProject, onNewChatInProject, onRenameProject, onRenameChat, onOpenProjectContext, onStartDecision, onOpenDecisionJournal, pendingReviewCount = 0 }: LeftSidebarProps) {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
     new Set(projects.map(p => p.id))
   );
@@ -58,8 +61,14 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
         <input type="text" className="search-box" placeholder="Search..." />
       </div>
       <div className="sidebar-actions">
-        <button className="new-project-btn" onClick={onNewProject}>
-          <Plus size={16} /> New Project
+        <button className="new-decision-btn" onClick={onStartDecision}>
+          <Target size={16} /> New Decision
+        </button>
+        <button className="decision-journal-btn" onClick={onOpenDecisionJournal}>
+          <BookOpen size={16} /> Decision Journal
+          {pendingReviewCount > 0 && (
+            <span className="pending-badge">{pendingReviewCount}</span>
+          )}
         </button>
         <button className="new-chat-btn" onClick={onNewChat}>
           <Plus size={16} /> New Chat

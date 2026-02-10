@@ -9,6 +9,7 @@ interface ChatViewProps {
   highlights: Highlight[];
   onTextSelection: (text: string, rect: DOMRect, messageId: string, startOffset: number, endOffset: number) => void;
   onHighlightClick: (highlightId: string, rect: DOMRect) => void;
+  onHighlightNavigate?: (messageId: string, startOffset: number, endOffset: number) => void;
   onSendMessage: (content: string) => Promise<void>;
   isSendingMessage: boolean;
   includeContext?: boolean;
@@ -21,6 +22,7 @@ export default function ChatView({
   highlights,
   onTextSelection,
   onHighlightClick,
+  onHighlightNavigate,
   onSendMessage,
   isSendingMessage,
   includeContext = true,
@@ -41,30 +43,92 @@ export default function ChatView({
     const selection = window.getSelection();
     const selectedText = selection?.toString() || '';
     const text = selectedText.trim();
-    
+
     if (text.length > 0 && text.length < 500 && selection?.rangeCount) {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      
+
       // Find the message element that contains the selection
-      let node = range.startContainer;
-      while (node && !node.parentElement?.classList.contains('message-bubble')) {
-        node = node.parentNode as Node;
+      let node: Node | null = range.startContainer;
+      let messageBubble: HTMLElement | null = null;
+
+      // Traverse up to find the message-bubble
+      while (node) {
+        if (node instanceof HTMLElement && node.classList.contains('message-bubble')) {
+          messageBubble = node;
+          break;
+        }
+        if (node.parentElement?.classList.contains('message-bubble')) {
+          messageBubble = node.parentElement;
+          break;
+        }
+        node = node.parentNode;
       }
-      
-      const messageBubble = node?.parentElement;
+
       const messageEl = messageBubble?.closest('.message');
       const messageId = messageEl?.getAttribute('data-message-id') || '';
-      
-      if (messageId) {
-        // Find the message to get its content
+
+      if (messageId && messageBubble) {
         const message = messages.find(m => m.id === messageId);
         if (message) {
-          // Find the exact position of the selected text in the message content
-          const contentIndex = message.content.indexOf(text);
-          if (contentIndex !== -1) {
-            const startOffset = contentIndex;
-            const endOffset = contentIndex + text.length;
+          const content = message.content;
+
+          // Calculate the DOM-based offset first using TreeWalker
+          const treeWalker = document.createTreeWalker(messageBubble, NodeFilter.SHOW_TEXT);
+          let charCount = 0;
+          let domOffset = -1;
+
+          while (treeWalker.nextNode()) {
+            const currentNode = treeWalker.currentNode;
+            const nodeLength = currentNode.textContent?.length || 0;
+
+            if (domOffset === -1 && currentNode === range.startContainer) {
+              domOffset = charCount + range.startOffset;
+            }
+
+            charCount += nodeLength;
+          }
+
+          // Map DOM offset to original content offset
+          // The DOM textContent may differ from message.content (e.g. HTML entities,
+          // <br> vs \n, markdown stripping). So we search for the selected text
+          // in the original content near the proportional position.
+          let startOffset = -1;
+          const domText = messageBubble.textContent || '';
+
+          if (domOffset !== -1 && domText.length > 0) {
+            // Estimate where in the original content this position maps to
+            const ratio = domOffset / domText.length;
+            const estimatedPos = Math.round(ratio * content.length);
+
+            // Find all occurrences and pick the one closest to the estimated position
+            let searchFrom = 0;
+            let bestOffset = -1;
+            let bestDist = Infinity;
+
+            while (searchFrom < content.length) {
+              const idx = content.indexOf(text, searchFrom);
+              if (idx === -1) break;
+              const dist = Math.abs(idx - estimatedPos);
+              if (dist < bestDist) {
+                bestDist = dist;
+                bestOffset = idx;
+              }
+              searchFrom = idx + 1;
+            }
+
+            if (bestOffset !== -1) {
+              startOffset = bestOffset;
+            }
+          }
+
+          // Fallback: simple indexOf on full content
+          if (startOffset === -1) {
+            startOffset = content.indexOf(text);
+          }
+
+          if (startOffset !== -1) {
+            const endOffset = startOffset + text.length;
             onTextSelection(text, rect, messageId, startOffset, endOffset);
           }
         }
@@ -116,12 +180,22 @@ export default function ChatView({
         {parts.map((part, index) => {
           const htmlContent = part.text.replace(/\n/g, '<br>');
           if (part.color && part.highlightId) {
+            const highlight = highlights.find(h => h.id === part.highlightId);
             return (
               <mark
                 key={index}
                 className={`highlight-${part.color}`}
+                style={{ cursor: 'pointer' }}
                 dangerouslySetInnerHTML={{ __html: htmlContent }}
                 onClick={(e) => {
+                  e.stopPropagation();
+                  // Navigate to the corresponding block on the canvas
+                  if (highlight && onHighlightNavigate) {
+                    onHighlightNavigate(highlight.messageId, highlight.startOffset, highlight.endOffset);
+                  }
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   const rect = (e.target as HTMLElement).getBoundingClientRect();
                   onHighlightClick(part.highlightId!, rect);

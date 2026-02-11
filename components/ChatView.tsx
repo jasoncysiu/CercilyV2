@@ -31,6 +31,9 @@ export default function ChatView({
 }: ChatViewProps) {
   const [inputValue, setInputValue] = useState('');
   const messagesRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
+  const MAX_SCROLL_PER_FRAME = 12; // px – limits auto-scroll speed during selection
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -38,6 +41,40 @@ export default function ChatView({
       messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Dampen auto-scroll while dragging to select text
+  useEffect(() => {
+    const container = messagesRef.current;
+    if (!container) return;
+
+    const onMouseDown = () => {
+      isDraggingRef.current = true;
+      lastScrollTopRef.current = container.scrollTop;
+    };
+    const onMouseUp = () => { isDraggingRef.current = false; };
+
+    const onScroll = () => {
+      if (!isDraggingRef.current) {
+        lastScrollTopRef.current = container.scrollTop;
+        return;
+      }
+      const delta = container.scrollTop - lastScrollTopRef.current;
+      if (Math.abs(delta) > MAX_SCROLL_PER_FRAME) {
+        const clamped = lastScrollTopRef.current + Math.sign(delta) * MAX_SCROLL_PER_FRAME;
+        container.scrollTop = clamped;
+      }
+      lastScrollTopRef.current = container.scrollTop;
+    };
+
+    container.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mouseup', onMouseUp);
+    container.addEventListener('scroll', onScroll);
+    return () => {
+      container.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mouseup', onMouseUp);
+      container.removeEventListener('scroll', onScroll);
+    };
+  }, []);
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
@@ -128,8 +165,19 @@ export default function ChatView({
           }
 
           if (startOffset !== -1) {
-            const endOffset = startOffset + text.length;
-            onTextSelection(text, rect, messageId, startOffset, endOffset);
+            let endOffset = startOffset + text.length;
+
+            // Snap to word boundaries
+            const isWordChar = (ch: string) => /\w/.test(ch);
+            while (startOffset > 0 && isWordChar(content[startOffset - 1])) {
+              startOffset--;
+            }
+            while (endOffset < content.length && isWordChar(content[endOffset])) {
+              endOffset++;
+            }
+
+            const snappedText = content.slice(startOffset, endOffset);
+            onTextSelection(snappedText, rect, messageId, startOffset, endOffset);
           }
         }
       }

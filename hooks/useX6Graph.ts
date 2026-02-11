@@ -328,7 +328,17 @@ export function useX6Graph(options: UseX6GraphOptions) {
 
     graphRef.current = graph;
 
+    // Trackpad two-finger scroll → pan (without ctrl/meta, which trigger zoom)
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) return; // let X6 mousewheel handle zoom
+      e.preventDefault();
+      const tx = graph.translate();
+      graph.translate(tx.tx - e.deltaX, tx.ty - e.deltaY);
+    };
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
     return () => {
+      container.removeEventListener('wheel', handleWheel);
       graph.dispose();
       graphRef.current = null;
     };

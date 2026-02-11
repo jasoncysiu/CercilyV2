@@ -11,7 +11,6 @@ import { useX6Graph } from '@/hooks/useX6Graph';
 import {
   Maximize2,
   Minimize2,
-  Sparkles,
   LayoutList,
   Trash2,
   Minus,
@@ -20,12 +19,15 @@ import {
   Lightbulb,
   Undo2,
   Redo2,
+  Rows3,
+  Columns3,
 } from 'lucide-react';
 
 // Register the React shape for our blocks
 let shapeRegistered = false;
 function ensureShapeRegistered() {
   if (shapeRegistered) return;
+  const hiddenPort = { circle: { r: 0, magnet: false, stroke: 'none', fill: 'none' } };
   register({
     shape: 'cercily-block',
     component: X6CanvasBlock,
@@ -34,54 +36,10 @@ function ensureShapeRegistered() {
     height: 100,
     ports: {
       groups: {
-        top: {
-          position: 'top',
-          attrs: {
-            circle: {
-              r: 5,
-              magnet: true,
-              stroke: '#d1d5db',
-              strokeWidth: 1.5,
-              fill: '#ffffff',
-            },
-          },
-        },
-        bottom: {
-          position: 'bottom',
-          attrs: {
-            circle: {
-              r: 5,
-              magnet: true,
-              stroke: '#d1d5db',
-              strokeWidth: 1.5,
-              fill: '#ffffff',
-            },
-          },
-        },
-        left: {
-          position: 'left',
-          attrs: {
-            circle: {
-              r: 5,
-              magnet: true,
-              stroke: '#d1d5db',
-              strokeWidth: 1.5,
-              fill: '#ffffff',
-            },
-          },
-        },
-        right: {
-          position: 'right',
-          attrs: {
-            circle: {
-              r: 5,
-              magnet: true,
-              stroke: '#d1d5db',
-              strokeWidth: 1.5,
-              fill: '#ffffff',
-            },
-          },
-        },
+        top: { position: 'top', attrs: hiddenPort },
+        bottom: { position: 'bottom', attrs: hiddenPort },
+        left: { position: 'left', attrs: hiddenPort },
+        right: { position: 'right', attrs: hiddenPort },
       },
       items: [
         { id: 'top', group: 'top' },
@@ -121,7 +79,7 @@ interface CanvasPanelProps {
   onZoomChange?: (zoom: number) => void;
   onDeleteConnection?: (fromId: string, toId: string) => void;
   onMergeBlocks?: (sourceId: string, targetId: string) => void;
-  onRearrange?: (optimizeConnections?: boolean) => void;
+  onRearrange?: (direction?: 'horizontal' | 'vertical') => void;
   showOutline?: boolean;
   onToggleOutline?: () => void;
   onSynthesizeDecision?: () => void;
@@ -245,16 +203,23 @@ export default function X6CanvasPanel({
       });
     };
 
+    const handleToggleCollapse = (e: Event) => {
+      const { blockId } = (e as CustomEvent).detail;
+      onToggleCollapse?.(blockId);
+    };
+
     window.addEventListener('x6-block-edit', handleBlockEdit);
     window.addEventListener('x6-block-navigate', handleBlockNavigate);
     window.addEventListener('x6-toggle-connected', handleToggleConnected);
+    window.addEventListener('x6-toggle-collapse', handleToggleCollapse);
 
     return () => {
       window.removeEventListener('x6-block-edit', handleBlockEdit);
       window.removeEventListener('x6-block-navigate', handleBlockNavigate);
       window.removeEventListener('x6-toggle-connected', handleToggleConnected);
+      window.removeEventListener('x6-toggle-collapse', handleToggleCollapse);
     };
-  }, [blocks, connections, onUpdateBlock, onDeleteBlock, onBlockClick, onPushSnapshot]);
+  }, [blocks, connections, onUpdateBlock, onDeleteBlock, onBlockClick, onPushSnapshot, onToggleCollapse]);
 
   // Get all descendants of a block from a specific connection position
   const getAllDescendants = useCallback((startBlockId: string, startPos: ConnectionPosition): string[] => {
@@ -613,11 +578,17 @@ export default function X6CanvasPanel({
           </button>
           <button
             className="canvas-tool-btn"
-            onClick={() => onRearrange?.(false)}
-            onDoubleClick={() => onRearrange?.(true)}
-            title="Single click: Tidy | Double click: Tidy + Auto-flip dots"
+            onClick={() => onRearrange?.('horizontal')}
+            title="Horizontal tree layout"
           >
-            <Sparkles size={16} />
+            <Columns3 size={16} />
+          </button>
+          <button
+            className="canvas-tool-btn"
+            onClick={() => onRearrange?.('vertical')}
+            title="Vertical tree layout"
+          >
+            <Rows3 size={16} />
           </button>
           <button
             className="canvas-tool-btn synthesize-btn"
@@ -699,7 +670,7 @@ export default function X6CanvasPanel({
           <button
             className="context-menu-btn"
             onClick={() => {
-              onRearrange?.(false);
+              onRearrange?.('horizontal');
               setContextMenu(null);
             }}
           >
@@ -733,16 +704,6 @@ export default function X6CanvasPanel({
             }}
           >
             {blocks.find(b => b.id === blockContextMenu.blockId)?.isCollapsed ? 'Expand' : 'Collapse'}
-          </button>
-          <div className="context-menu-divider" />
-          <button
-            className="context-menu-btn"
-            onClick={() => {
-              onSetTool('connect');
-              setBlockContextMenu(null);
-            }}
-          >
-            Link
           </button>
           <div className="context-menu-divider" />
           <button

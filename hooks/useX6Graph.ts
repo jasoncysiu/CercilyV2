@@ -7,7 +7,6 @@ import {
   blockToX6Node,
   connectionToX6Edge,
   connectionEdgeId,
-  portIdToPosition,
   portGroups,
   defaultPorts,
 } from '@/lib/x6-helpers';
@@ -72,31 +71,12 @@ export function useX6Graph(options: UseX6GraphOptions) {
         allowBlank: false,
         allowLoop: false,
         allowMulti: false,
-        snap: { radius: 30 },
         allowNode: false,
-        allowPort: true,
-        createEdge() {
-          return this.createEdge({
-            connector: { name: 'smooth' },
-            attrs: {
-              line: {
-                stroke: '#94a3b8',
-                strokeWidth: 2,
-                targetMarker: null,
-              },
-            },
-          });
-        },
-        validateConnection({ sourcePort, targetPort, sourceCell, targetCell }) {
-          if (!sourcePort || !targetPort) return false;
-          if (sourceCell && targetCell && sourceCell.id === targetCell.id) return false;
-          return true;
-        },
+        allowPort: false,
       },
       interacting: () => {
         return {
           nodeMovable: true,
-          magnetConnectable: true,
         };
       },
     });
@@ -117,23 +97,151 @@ export function useX6Graph(options: UseX6GraphOptions) {
 
     // --- Event Handlers ---
 
-    // Node moved
+    // Drag-to-connect: highlight drop target during drag
+    let highlightedNodeId: string | null = null;
+
+    graph.on('node:moving', ({ node }) => {
+      if (isSyncingRef.current) return;
+      // Skip highlight when multiple nodes selected
+      const selectedNodes = graph.getSelectedCells().filter(c => c.isNode());
+      if (selectedNodes.length > 1) return;
+
+      const bbox = node.getBBox();
+      const nodes = graph.getNodes().filter(n => n.id !== node.id);
+
+      let targetId: string | null = null;
+      for (const other of nodes) {
+        if (bbox.isIntersectWithRect(other.getBBox())) {
+          targetId = other.id;
+          break;
+        }
+      }
+
+      if (targetId !== highlightedNodeId) {
+        if (highlightedNodeId) {
+          const prev = graph.getCellById(highlightedNodeId) as Node;
+          if (prev) {
+            const prevData = prev.getData();
+            prev.setData({ ...prevData, isDropTarget: false }, { overwrite: true });
+          }
+        }
+        if (targetId) {
+          const target = graph.getCellById(targetId) as Node;
+          if (target) {
+            const targetData = target.getData();
+            target.setData({ ...targetData, isDropTarget: true }, { overwrite: true });
+          }
+        }
+        highlightedNodeId = targetId;
+      }
+    });
+
+    // Node moved — drag-to-connect on drop + position persistence
     graph.on('node:moved', ({ node }) => {
       if (isSyncingRef.current) return;
-      const pos = node.getPosition();
-      optionsRef.current.onPushSnapshot?.();
-      optionsRef.current.onUpdateBlock(node.id, { x: pos.x, y: pos.y });
 
-      // If multiple nodes selected, update all of them
+      // Clear any remaining highlight
+      if (highlightedNodeId) {
+        const prev = graph.getCellById(highlightedNodeId) as Node;
+        if (prev) {
+          const prevData = prev.getData();
+          prev.setData({ ...prevData, isDropTarget: false }, { overwrite: true });
+        }
+        highlightedNodeId = null;
+      }
+
+      const pos = node.getPosition();
+
+      // If multiple nodes selected, just persist positions (no drag-to-connect)
       const selectedCells = graph.getSelectedCells();
       const selectedNodes = selectedCells.filter(c => c.isNode()) as Node[];
       if (selectedNodes.length > 1) {
+        optionsRef.current.onPushSnapshot?.();
+        optionsRef.current.onUpdateBlock(node.id, { x: pos.x, y: pos.y });
         selectedNodes.forEach(n => {
           if (n.id !== node.id) {
             const npos = n.getPosition();
             optionsRef.current.onUpdateBlock(n.id, { x: npos.x, y: npos.y });
           }
         });
+        return;
+      }
+
+      // Check for overlap with another node
+      const bbox = node.getBBox();
+      const nodes = graph.getNodes().filter(n => n.id !== node.id);
+      let targetNode: Node | null = null;
+      for (const other of nodes) {
+        if (bbox.isIntersectWithRect(other.getBBox())) {
+          targetNode = other;
+          break;
+        }
+      }
+
+      if (targetNode) {
+        // Check if already connected (either direction)
+        const edges = graph.getEdges();
+        const alreadyConnected = edges.some(e => {
+          const src = e.getSource() as { cell?: string };
+          const tgt = e.getTarget() as { cell?: string };
+          return (src.cell === targetNode!.id && tgt.cell === node.id) ||
+                 (src.cell === node.id && tgt.cell === targetNode!.id);
+        });
+
+        if (!alreadyConnected) {
+          // Compute connection positions by relative position
+          // from = parent (target), to = child (dragged)
+          const parentPos = targetNode.getPosition();
+          const parentSize = targetNode.getSize();
+          const movedSize = node.getSize();
+          const parentCenterX = parentPos.x + parentSize.width / 2;
+          const parentCenterY = parentPos.y + parentSize.height / 2;
+          const childCenterX = pos.x + movedSize.width / 2;
+          const childCenterY = pos.y + movedSize.height / 2;
+
+          const dx = childCenterX - parentCenterX;
+          const dy = childCenterY - parentCenterY;
+
+          let fromPos: ConnectionPosition;
+          let toPos: ConnectionPosition;
+          if (Math.abs(dx) > Math.abs(dy)) {
+            fromPos = dx > 0 ? 'right' : 'left';
+            toPos = dx > 0 ? 'left' : 'right';
+          } else {
+            fromPos = dy > 0 ? 'bottom' : 'top';
+            toPos = dy > 0 ? 'top' : 'bottom';
+          }
+
+          // Reposition child to a clear spot on the parent's connection side
+          const gap = 40;
+          let newX = parentPos.x;
+          let newY = parentPos.y;
+          if (fromPos === 'right') {
+            newX = parentPos.x + parentSize.width + gap;
+            newY = parentPos.y + parentSize.height / 2 - movedSize.height / 2;
+          } else if (fromPos === 'left') {
+            newX = parentPos.x - movedSize.width - gap;
+            newY = parentPos.y + parentSize.height / 2 - movedSize.height / 2;
+          } else if (fromPos === 'bottom') {
+            newX = parentPos.x + parentSize.width / 2 - movedSize.width / 2;
+            newY = parentPos.y + parentSize.height + gap;
+          } else {
+            newX = parentPos.x + parentSize.width / 2 - movedSize.width / 2;
+            newY = parentPos.y - movedSize.height - gap;
+          }
+
+          optionsRef.current.onPushSnapshot?.();
+          optionsRef.current.onAddConnection(targetNode.id, fromPos, node.id, toPos);
+          optionsRef.current.onUpdateBlock(node.id, { x: newX, y: newY });
+        } else {
+          // Already connected, just persist position
+          optionsRef.current.onPushSnapshot?.();
+          optionsRef.current.onUpdateBlock(node.id, { x: pos.x, y: pos.y });
+        }
+      } else {
+        // No overlap, just persist position
+        optionsRef.current.onPushSnapshot?.();
+        optionsRef.current.onUpdateBlock(node.id, { x: pos.x, y: pos.y });
       }
     });
 
@@ -143,31 +251,6 @@ export function useX6Graph(options: UseX6GraphOptions) {
       const size = node.getSize();
       optionsRef.current.onPushSnapshot?.();
       optionsRef.current.onUpdateBlock(node.id, { width: size.width, height: size.height });
-    });
-
-    // Edge connected (new edge created by user dragging)
-    graph.on('edge:connected', ({ edge }) => {
-      if (isSyncingRef.current) return;
-      const source = edge.getSource() as { cell?: string; port?: string };
-      const target = edge.getTarget() as { cell?: string; port?: string };
-      if (source.cell && target.cell && source.port && target.port) {
-        optionsRef.current.onPushSnapshot?.();
-        optionsRef.current.onAddConnection(
-          source.cell as string,
-          portIdToPosition(source.port),
-          target.cell as string,
-          portIdToPosition(target.port),
-        );
-      }
-      // Always remove the X6-created edge — the sync will re-add from React state
-      // Use direct remove (not silent) so the SVG element is fully cleaned up
-      isSyncingRef.current = true;
-      try {
-        edge.remove();
-      } catch (_) {
-        // Edge may already be gone
-      }
-      isSyncingRef.current = false;
     });
 
     // Selection changed
@@ -281,6 +364,12 @@ export function useX6Graph(options: UseX6GraphOptions) {
       const visibleBlocks = options.blocks.filter(b => !b.isHidden);
       const visibleBlockIds = new Set(visibleBlocks.map(b => b.id));
 
+      // Build set of blocks that have outgoing connections (children)
+      const blocksWithChildren = new Set<string>();
+      for (const conn of options.connections) {
+        blocksWithChildren.add(conn.from);
+      }
+
       // --- Sync Nodes ---
       const currentNodes = graph.getNodes();
       const currentNodeIds = new Set(currentNodes.map(n => n.id));
@@ -294,6 +383,7 @@ export function useX6Graph(options: UseX6GraphOptions) {
 
       // Add or update nodes
       for (const block of visibleBlocks) {
+        const hasChildren = blocksWithChildren.has(block.id);
         if (currentNodeIds.has(block.id)) {
           const node = graph.getCellById(block.id) as Node;
           if (node) {
@@ -303,18 +393,18 @@ export function useX6Graph(options: UseX6GraphOptions) {
             const targetH = block.height || (block.isCollapsed ? 50 : 100);
 
             if (pos.x !== block.x || pos.y !== block.y) {
-              node.setPosition(block.x, block.y, { silent: true });
+              node.setPosition(block.x, block.y);
             }
             if (size.width !== targetW || size.height !== targetH) {
-              node.setSize(targetW, targetH, { silent: true });
+              node.setSize(targetW, targetH);
             }
             // Update data WITHOUT silent so the React shape re-renders
             // (effect: ['data'] in the shape registration listens for change events)
-            node.setData({ block }, { overwrite: true });
+            node.setData({ block, hasChildren }, { overwrite: true });
           }
         } else {
           // Add new node
-          graph.addNode(blockToX6Node(block));
+          graph.addNode(blockToX6Node(block, hasChildren));
         }
       }
 

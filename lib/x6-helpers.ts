@@ -1,55 +1,15 @@
 import { Block, Connection, BlockColor, ConnectionPosition } from './types';
 
-// Port group configuration for X6 nodes
+// Port group configuration for X6 nodes (invisible — used only for edge routing)
+const hiddenPortAttrs = {
+  circle: { r: 0, magnet: false, stroke: 'none', fill: 'none' },
+};
+
 export const portGroups = {
-  top: {
-    position: 'top',
-    attrs: {
-      circle: {
-        r: 5,
-        magnet: true,
-        stroke: 'var(--border-primary)',
-        strokeWidth: 1.5,
-        fill: 'var(--bg-secondary)',
-      },
-    },
-  },
-  bottom: {
-    position: 'bottom',
-    attrs: {
-      circle: {
-        r: 5,
-        magnet: true,
-        stroke: 'var(--border-primary)',
-        strokeWidth: 1.5,
-        fill: 'var(--bg-secondary)',
-      },
-    },
-  },
-  left: {
-    position: 'left',
-    attrs: {
-      circle: {
-        r: 5,
-        magnet: true,
-        stroke: 'var(--border-primary)',
-        strokeWidth: 1.5,
-        fill: 'var(--bg-secondary)',
-      },
-    },
-  },
-  right: {
-    position: 'right',
-    attrs: {
-      circle: {
-        r: 5,
-        magnet: true,
-        stroke: 'var(--border-primary)',
-        strokeWidth: 1.5,
-        fill: 'var(--bg-secondary)',
-      },
-    },
-  },
+  top: { position: 'top', attrs: hiddenPortAttrs },
+  bottom: { position: 'bottom', attrs: hiddenPortAttrs },
+  left: { position: 'left', attrs: hiddenPortAttrs },
+  right: { position: 'right', attrs: hiddenPortAttrs },
 };
 
 // Default port items for each node
@@ -74,7 +34,7 @@ export function getEdgeStrokeColor(color: BlockColor): string {
 }
 
 // Convert a Block to X6 node metadata
-export function blockToX6Node(block: Block) {
+export function blockToX6Node(block: Block, hasChildren = false) {
   return {
     id: block.id,
     shape: 'cercily-block',
@@ -82,7 +42,7 @@ export function blockToX6Node(block: Block) {
     y: block.y,
     width: block.width || (block.isCollapsed ? 160 : 260),
     height: block.height || (block.isCollapsed ? 50 : 100),
-    data: { block },
+    data: { block, hasChildren },
     ports: {
       groups: portGroups,
       items: defaultPorts,

@@ -2813,6 +2813,7 @@ mark {
   line-height: 1.5;
   color: var(--text-primary);
   word-break: break-word;
+  overflow: hidden;
 }
 
 .x6-block-inner .block-content.editing {
@@ -2837,6 +2838,32 @@ mark {
   opacity: 0.6;
 }
 
+/* Mind-map collapse/expand button in block header */
+.x6-collapse-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid var(--border-primary, #444);
+  background: transparent;
+  color: var(--text-secondary, #aaa);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.x6-collapse-btn:hover {
+  background: var(--bg-secondary, #252540);
+  border-color: var(--accent, #8b5cf6);
+  color: var(--text-primary, #e5e5e5);
+}
+
 /* X6 selection — style the node itself instead of a separate overlay */
 .x6-cell-selected .x6-block-inner {
   outline: 2px solid var(--accent);
@@ -2855,14 +2882,9 @@ mark {
   stroke-width: 3;
 }
 
-/* X6 port visibility */
+/* X6 ports — hidden (used only for edge routing) */
 .x6-port-body {
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.x6-node:hover .x6-port-body {
-  opacity: 1;
+  display: none !important;
 }
 
 /* X6 snapline */

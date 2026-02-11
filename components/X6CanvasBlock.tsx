@@ -11,8 +11,10 @@ interface X6CanvasBlockProps {
 }
 
 export default function X6CanvasBlock({ node, graph }: X6CanvasBlockProps) {
-  const data = node.getData() as { block: Block } | undefined;
+  const data = node.getData() as { block: Block; hasChildren?: boolean; isDropTarget?: boolean } | undefined;
   const block = data?.block;
+  const hasChildren = data?.hasChildren ?? false;
+  const isDropTarget = data?.isDropTarget ?? false;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [localText, setLocalText] = useState(block?.text || '');
 
@@ -83,6 +85,15 @@ export default function X6CanvasBlock({ node, graph }: X6CanvasBlockProps) {
     window.dispatchEvent(event);
   };
 
+  const handleCollapseToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const event = new CustomEvent('x6-toggle-collapse', {
+      detail: { blockId: block.id },
+    });
+    window.dispatchEvent(event);
+  };
+
   return (
     <div
       className={`x6-block-inner ${block.color} ${block.isEditing ? 'editing' : ''}`}
@@ -92,10 +103,22 @@ export default function X6CanvasBlock({ node, graph }: X6CanvasBlockProps) {
         overflow: 'hidden',
         borderRadius: '8px',
         cursor: 'grab',
+        boxShadow: isDropTarget ? '0 0 0 3px #8b5cf6, 0 0 20px rgba(139, 99, 246, 0.3)' : undefined,
+        transition: 'box-shadow 0.15s ease',
       }}
     >
       <div className="block-header">
         <span className={`block-tag ${block.color}`}>{block.color}</span>
+        {hasChildren && (
+          <button
+            className="x6-collapse-btn"
+            onClick={handleCollapseToggle}
+            onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+            title={isCollapsed ? 'Expand children' : 'Collapse children'}
+          >
+            {isCollapsed ? '+' : '\u2212'}
+          </button>
+        )}
       </div>
 
       {!isCollapsed && !block.isEditing && (
@@ -138,6 +161,7 @@ export default function X6CanvasBlock({ node, graph }: X6CanvasBlockProps) {
           {block.text.slice(0, 20) + (block.text.length > 20 ? '...' : '')}
         </div>
       )}
+
     </div>
   );
 }

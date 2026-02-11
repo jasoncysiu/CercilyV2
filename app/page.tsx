@@ -428,6 +428,24 @@ export default function Home() {
   const highlightIdRef = useRef(0);
   const messageIdRef = useRef(100); // To generate unique message IDs
 
+  // Sync ID counters with existing data to avoid ID collisions
+  useEffect(() => {
+    let maxBlockId = 0;
+    let maxHighlightId = 0;
+    Object.values(chatsData).forEach(chat => {
+      chat.blocks?.forEach(b => {
+        const match = b.id.match(/^block-(\d+)$/);
+        if (match) maxBlockId = Math.max(maxBlockId, parseInt(match[1], 10));
+      });
+      chat.highlights?.forEach(h => {
+        const match = h.id.match(/^highlight-(\d+)$/);
+        if (match) maxHighlightId = Math.max(maxHighlightId, parseInt(match[1], 10));
+      });
+    });
+    if (maxBlockId > blockIdRef.current) blockIdRef.current = maxBlockId;
+    if (maxHighlightId > highlightIdRef.current) highlightIdRef.current = maxHighlightId;
+  }, [chatsData]);
+
   // Ref to skip snapshot in internal calls (e.g. mergeBlocks calls updateBlock + deleteBlock)
   const skipSnapshotRef = useRef(false);
 
@@ -458,26 +476,28 @@ export default function Home() {
     let posY = y;
 
     if (posX === undefined || posY === undefined) {
-      // Gather all blocks across the project (not just current chat) to avoid overlaps
-      const allBlocks = projectChatIds.flatMap(cid => chatsData[cid]?.blocks || []);
-      const occupied = new Set(allBlocks.map(b => `${Math.round(b.x / 210)},${Math.round(b.y / 130)}`));
+      // Gather all visible blocks across the project to avoid overlaps
+      const allBlocks = projectChatIds.flatMap(cid => chatsData[cid]?.blocks || []).filter(b => !b.isHidden);
+      const blockW = 260;
+      const blockH = 100;
+      const gap = 40;
 
-      // Find the first unoccupied grid slot
-      let placed = false;
-      for (let row = 0; row < 100 && !placed; row++) {
-        for (let col = 0; col < 3 && !placed; col++) {
-          const key = `${col},${row}`;
-          if (!occupied.has(key)) {
-            posX = 30 + col * 210;
-            posY = 30 + row * 130;
-            placed = true;
-          }
-        }
-      }
-      if (!placed) {
-        const rows = Math.ceil(allBlocks.length / 3);
+      if (allBlocks.length === 0) {
         posX = 30;
-        posY = 30 + rows * 130;
+        posY = 30;
+      } else {
+        // Find the bottommost extent of all blocks
+        let maxBottom = 0;
+        let leftmostX = Infinity;
+        for (const b of allBlocks) {
+          const bh = b.height || (b.isCollapsed ? 50 : blockH);
+          const bottom = b.y + bh;
+          if (bottom > maxBottom) maxBottom = bottom;
+          if (b.x < leftmostX) leftmostX = b.x;
+        }
+        // Place new block below all existing blocks, aligned to the leftmost column
+        posX = leftmostX < Infinity ? leftmostX : 30;
+        posY = maxBottom + gap;
       }
     }
 
@@ -848,7 +868,7 @@ export default function Home() {
     }
   }, [updateCurrentChatData, pushSnapshot]);
 
-  const rearrangeBlocks = useCallback((optimizeConnections = false) => {
+  const rearrangeBlocks = useCallback((direction: 'horizontal' | 'vertical' = 'horizontal') => {
     pushSnapshot();
     const projectChatIds = projects[currentProjectId]?.chatIds || [];
     const allBlocks = projectChatIds.flatMap(id => (chatsData[id]?.blocks || [])).filter(b => !b.isHidden);
@@ -859,78 +879,103 @@ export default function Home() {
     // Map parent -> children
     const childrenMap = new Map<string, string[]>();
     const parentOfMap = new Map<string, string[]>();
-    
+
     allConnections.forEach(conn => {
       if (!childrenMap.has(conn.from)) childrenMap.set(conn.from, []);
       childrenMap.get(conn.from)!.push(conn.to);
-      
+
       if (!parentOfMap.has(conn.to)) parentOfMap.set(conn.to, []);
       parentOfMap.get(conn.to)!.push(conn.from);
     });
 
     // Find roots (blocks that aren't children of any other visible block)
     const roots = allBlocks.filter(b => !parentOfMap.has(b.id));
-    
-    const newPositions = new Map<string, { x: number, y: number }>();
-    const levelSpacing = 350; // Increased spacing for better readability
-    const nodeSpacing = 160; 
 
-    // 1. Calculate subtree heights
-    const subtreeHeight = new Map<string, number>();
+    const newPositions = new Map<string, { x: number, y: number }>();
+    const levelSpacing = 350;
+    const nodeSpacing = 160;
+
+    // 1. Calculate subtree sizes (perpendicular to layout direction)
+    const subtreeSpan = new Map<string, number>();
     const visited = new Set<string>();
 
-    const calculateHeight = (nodeId: string): number => {
-      // Prevent infinite loops in case of cycles
+    const calculateSpan = (nodeId: string): number => {
       if (visited.has(nodeId)) return 0;
       visited.add(nodeId);
 
       const children = childrenMap.get(nodeId) || [];
       if (children.length === 0) {
-        subtreeHeight.set(nodeId, nodeSpacing);
+        subtreeSpan.set(nodeId, nodeSpacing);
         return nodeSpacing;
       }
 
-      let h = 0;
+      let span = 0;
       children.forEach(childId => {
-        h += calculateHeight(childId);
+        span += calculateSpan(childId);
       });
-      
-      // Ensure parent height is at least nodeSpacing
-      const result = Math.max(h, nodeSpacing);
-      subtreeHeight.set(nodeId, result);
+
+      const result = Math.max(span, nodeSpacing);
+      subtreeSpan.set(nodeId, result);
       return result;
     };
 
     roots.forEach(root => {
       visited.clear();
-      calculateHeight(root.id);
+      calculateSpan(root.id);
     });
 
-    // 2. Position nodes
-    let currentRootY = 100;
+    // 2. Position nodes based on direction
     const positionedCount = new Set<string>();
 
-    const layoutNode = (nodeId: string, x: number, startY: number) => {
-      if (positionedCount.has(nodeId)) return;
-      positionedCount.add(nodeId);
+    if (direction === 'horizontal') {
+      // Parents on the left, children spread right
+      let currentRootY = 100;
 
-      const h = subtreeHeight.get(nodeId) || nodeSpacing;
-      const centerY = startY + h / 2 - 40; // Adjust for card height
-      
-      newPositions.set(nodeId, { x, y: centerY });
+      const layoutNode = (nodeId: string, x: number, startY: number) => {
+        if (positionedCount.has(nodeId)) return;
+        positionedCount.add(nodeId);
 
-      let currentChildY = startY;
-      const children = childrenMap.get(nodeId) || [];
-      children.forEach(childId => {
-        layoutNode(childId, x + levelSpacing, currentChildY);
-        currentChildY += subtreeHeight.get(childId) || nodeSpacing;
+        const span = subtreeSpan.get(nodeId) || nodeSpacing;
+        const centerY = startY + span / 2 - 40;
+        newPositions.set(nodeId, { x, y: centerY });
+
+        let currentChildY = startY;
+        const children = childrenMap.get(nodeId) || [];
+        children.forEach(childId => {
+          layoutNode(childId, x + levelSpacing, currentChildY);
+          currentChildY += subtreeSpan.get(childId) || nodeSpacing;
+        });
+      };
+
+      roots.forEach(root => {
+        layoutNode(root.id, 100, currentRootY);
+        currentRootY += (subtreeSpan.get(root.id) || nodeSpacing) + 100;
       });
-    };
+    } else {
+      // Vertical: parents on top, children spread down
+      let currentRootX = 100;
 
-    roots.forEach(root => {
-      layoutNode(root.id, 100, currentRootY);
-      currentRootY += (subtreeHeight.get(root.id) || nodeSpacing) + 100;
-    });
+      const layoutNode = (nodeId: string, startX: number, y: number) => {
+        if (positionedCount.has(nodeId)) return;
+        positionedCount.add(nodeId);
+
+        const span = subtreeSpan.get(nodeId) || nodeSpacing;
+        const centerX = startX + span / 2 - 100; // Adjust for card width
+        newPositions.set(nodeId, { x: centerX, y });
+
+        let currentChildX = startX;
+        const children = childrenMap.get(nodeId) || [];
+        children.forEach(childId => {
+          layoutNode(childId, currentChildX, y + levelSpacing);
+          currentChildX += subtreeSpan.get(childId) || nodeSpacing;
+        });
+      };
+
+      roots.forEach(root => {
+        layoutNode(root.id, currentRootX, 100);
+        currentRootX += (subtreeSpan.get(root.id) || nodeSpacing) + 100;
+      });
+    }
 
     setChatsData(prev => {
       const updated = { ...prev };
@@ -941,15 +986,14 @@ export default function Home() {
             const pos = newPositions.get(b.id);
             return pos ? { ...b, x: pos.x, y: pos.y } : b;
           });
-          
+
           const blockMap = new Map(blocksWithNewPos.map(b => [b.id, b]));
 
           updated[cid] = {
             ...chat,
             blocks: blocksWithNewPos,
+            // Always auto-optimize connection positions after layout
             connections: chat.connections.map(conn => {
-              if (!optimizeConnections) return conn;
-
               const b1 = blockMap.get(conn.from);
               const b2 = blockMap.get(conn.to);
               if (b1 && b2) {
@@ -957,7 +1001,7 @@ export default function Home() {
                 const dy = b2.y - b1.y;
                 let fromPos = conn.fromPos;
                 let toPos = conn.toPos;
-                
+
                 if (Math.abs(dx) > Math.abs(dy)) {
                   fromPos = dx > 0 ? 'right' : 'left';
                   toPos = dx > 0 ? 'left' : 'right';
@@ -976,7 +1020,7 @@ export default function Home() {
     });
 
     setCurrentTool('select');
-    showToast(optimizeConnections ? 'Rearranged with auto-flipped dots!' : 'Rearranged with parents on the left!');
+    showToast(direction === 'horizontal' ? 'Horizontal layout applied' : 'Vertical layout applied');
   }, [currentProjectId, projects, chatsData, setCurrentTool, showToast, pushSnapshot]);
 
 

@@ -54,6 +54,7 @@ export interface ChatData {
   blocks: Block[];
   connections: Connection[];
   highlights: Highlight[];
+  updatedAt?: string;
 }
 
 export interface ChatItem {
@@ -61,6 +62,7 @@ export interface ChatItem {
   title: string;
   preview: string;
   active?: boolean;
+  updatedAt?: string;
 }
 
 // ============================================
@@ -101,6 +103,7 @@ export interface ProjectItem {
   title: string;
   chats: ChatItem[];
   context?: string;
+  isDecision?: boolean;
 }
 
 export interface ProjectWithDecision extends Project {

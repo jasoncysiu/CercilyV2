@@ -213,6 +213,7 @@ export async function getChats(): Promise<Record<string, ChatData & { id: string
     const highlightsJson = extractText(props.Highlights?.rich_text);
     const projectRelation = props.Project?.relation;
     const projectId = projectRelation?.[0]?.id;
+    const updatedAt = props['Updated At']?.date?.start || page.last_edited_time;
 
     chats[id] = {
       id,
@@ -223,6 +224,7 @@ export async function getChats(): Promise<Record<string, ChatData & { id: string
       blocks: parseJson(blocksJson, []),
       connections: parseJson(connectionsJson, []),
       highlights: parseJson(highlightsJson, []),
+      updatedAt,
     };
   }
 

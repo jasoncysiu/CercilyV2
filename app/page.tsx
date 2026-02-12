@@ -2040,11 +2040,13 @@ Confidence: ${decisionData.confidence}/10`;
     id: p.id,
     title: p.title,
     context: p.context,
+    isDecision: p.isDecision,
     chats: p.chatIds.map(id => ({
       id,
       title: chatsData[id]?.title || 'Untitled',
       preview: chatsData[id]?.preview || '',
       active: id === currentChatId,
+      updatedAt: chatsData[id]?.updatedAt,
     })),
   }));
 

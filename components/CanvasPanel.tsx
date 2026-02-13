@@ -1172,7 +1172,7 @@ export default function CanvasPanel({
             onMouseDown={(e) => e.stopPropagation()}
           >
             <button className="context-menu-btn" onClick={() => {
-              onAddBlock('', 'yellow', contextMenu.modelX, contextMenu.modelY, true);
+              onAddBlock('', 'blue', contextMenu.modelX, contextMenu.modelY, true);
               setContextMenu(null);
             }}>
               New Card

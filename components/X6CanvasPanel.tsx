@@ -306,7 +306,7 @@ export default function X6CanvasPanel({
     if (target.closest('[data-cell-id]')) return;
 
     const pos = screenToGraphPosition(e.clientX, e.clientY);
-    onAddBlock('', 'yellow', pos.x - 130, pos.y - 20, true);
+    onAddBlock('', 'blue', pos.x - 130, pos.y - 20, true);
   }, [screenToGraphPosition, onAddBlock]);
 
   // Handle edge clicks for deletion
@@ -396,8 +396,9 @@ export default function X6CanvasPanel({
     const H = canvas.height;
 
     const colorMap: Record<string, string> = {
-      yellow: '#F59E0B', blue: '#3B82F6', pink: '#D946EF',
-      green: '#10B981', orange: '#F97316',
+      orange: '#FF7F0F', cyan: '#00BFBF', pink: '#FF4081',
+      purple: '#CE5BFF', green: '#32CD35', gold: '#FFBF00',
+      blue: '#03A9F4', teal: '#00B7A5',
     };
 
     const draw = () => {
@@ -660,7 +661,7 @@ export default function X6CanvasPanel({
           <button
             className="context-menu-btn"
             onClick={() => {
-              onAddBlock('', 'yellow', contextMenu.modelX, contextMenu.modelY, true);
+              onAddBlock('', 'blue', contextMenu.modelX, contextMenu.modelY, true);
               setContextMenu(null);
             }}
           >

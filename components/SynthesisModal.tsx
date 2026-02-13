@@ -16,11 +16,14 @@ interface SynthesisModalProps {
 }
 
 const COLOR_MAP: Record<BlockColor, string> = {
-  yellow: '#FCD34D',
-  blue: '#60A5FA',
-  pink: '#F472B6',
-  green: '#34D399',
-  orange: '#FB923C',
+  orange: '#FF7F0F',
+  cyan: '#00BFBF',
+  pink: '#FF4081',
+  purple: '#CE5BFF',
+  green: '#32CD35',
+  gold: '#FFBF00',
+  blue: '#03A9F4',
+  teal: '#00B7A5',
 };
 
 export default function SynthesisModal({

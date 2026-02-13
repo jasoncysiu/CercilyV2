@@ -267,22 +267,11 @@ h1 {
 }
 
 .platform-name {
-  color: var(--accent);
-  font-size: 16px;
+  color: #ffffff;
+  font-family: 'Aino', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 22px;
   font-weight: 600;
-  letter-spacing: -0.3px;
-}
-
-.title-separator {
-  color: var(--text-tertiary);
-  font-size: 14px;
-  font-weight: 400;
-}
-
-.chat-title {
-  color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 500;
+  letter-spacing: -0.03em;
 }
 
 /* ========================================
@@ -1026,6 +1015,79 @@ h1 {
   color: var(--text-tertiary);
 }
 
+/* Brainstorm */
+.df-brainstorm-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s ease;
+}
+
+.df-brainstorm-btn:hover {
+  color: var(--accent);
+}
+
+.df-brainstorm-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  padding: 6px 0;
+}
+
+.df-brainstorm-loading .df-loading-spinner {
+  width: 16px;
+  height: 16px;
+}
+
+.df-brainstorm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.df-brainstorm-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+.df-brainstorm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.df-brainstorm-chip {
+  padding: 8px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.df-brainstorm-chip:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
 /* ========================================
    MAIN CONTENT LAYOUT
    ======================================== */
@@ -1311,21 +1373,26 @@ h1 {
 
 .connection-line {
   stroke: var(--text-tertiary);
-  stroke-width: 2;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   fill: none;
   transition: stroke-width 0.2s, opacity 0.2s, d 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .connection-line:hover {
-  stroke-width: 3;
+  stroke-width: 5;
   opacity: 0.9;
 }
 
-.connection-line.yellow { stroke: #F59E0B; }
-.connection-line.blue { stroke: #3B82F6; }
-.connection-line.pink { stroke: #D946EF; }
-.connection-line.green { stroke: #10B981; }
-.connection-line.orange { stroke: #F97316; }
+.connection-line.orange { stroke: #FF7F0F; }
+.connection-line.cyan { stroke: #00BFBF; }
+.connection-line.pink { stroke: #FF4081; }
+.connection-line.purple { stroke: #CE5BFF; }
+.connection-line.green { stroke: #32CD35; }
+.connection-line.gold { stroke: #FFBF00; }
+.connection-line.blue { stroke: #03A9F4; }
+.connection-line.teal { stroke: #00B7A5; }
 
 .temp-connection {
   stroke: var(--accent);
@@ -1373,12 +1440,15 @@ h1 {
   z-index: 100 !important;
 }
 
-/* Block color indicators */
-.canvas-block.yellow { border-left: 3px solid #F59E0B; }
-.canvas-block.blue { border-left: 3px solid #3B82F6; }
-.canvas-block.pink { border-left: 3px solid #D946EF; }
-.canvas-block.green { border-left: 3px solid #10B981; }
-.canvas-block.orange { border-left: 3px solid #F97316; }
+/* Block color indicators — MMW 8-color palette */
+.canvas-block.orange { border-left: 3px solid #FF7F0F; }
+.canvas-block.cyan { border-left: 3px solid #00BFBF; }
+.canvas-block.pink { border-left: 3px solid #FF4081; }
+.canvas-block.purple { border-left: 3px solid #CE5BFF; }
+.canvas-block.green { border-left: 3px solid #32CD35; }
+.canvas-block.gold { border-left: 3px solid #FFBF00; }
+.canvas-block.blue { border-left: 3px solid #03A9F4; }
+.canvas-block.teal { border-left: 3px solid #00B7A5; }
 
 .block-header {
   display: flex;
@@ -1395,11 +1465,14 @@ h1 {
   letter-spacing: 0.5px;
 }
 
-.block-tag.yellow { background: rgba(245, 158, 11, 0.15); color: #D97706; }
-.block-tag.blue { background: rgba(59, 130, 246, 0.15); color: #3B82F6; }
-.block-tag.pink { background: rgba(217, 70, 239, 0.15); color: #D946EF; }
-.block-tag.green { background: rgba(16, 185, 129, 0.15); color: #059669; }
-.block-tag.orange { background: rgba(249, 115, 22, 0.15); color: #EA580C; }
+.block-tag.orange { background: rgba(255, 127, 15, 0.15); color: #FF7F0F; }
+.block-tag.cyan { background: rgba(0, 191, 191, 0.15); color: #00BFBF; }
+.block-tag.pink { background: rgba(255, 64, 129, 0.15); color: #FF4081; }
+.block-tag.purple { background: rgba(206, 91, 255, 0.15); color: #CE5BFF; }
+.block-tag.green { background: rgba(50, 205, 53, 0.15); color: #32CD35; }
+.block-tag.gold { background: rgba(255, 191, 0, 0.15); color: #FFBF00; }
+.block-tag.blue { background: rgba(3, 169, 244, 0.15); color: #03A9F4; }
+.block-tag.teal { background: rgba(0, 183, 165, 0.15); color: #00B7A5; }
 
 .block-actions {
   display: none;
@@ -1623,11 +1696,14 @@ h1 {
   transform: scale(1.15);
 }
 
-.color-btn.yellow { background: #F59E0B; }
-.color-btn.blue { background: #3B82F6; }
-.color-btn.pink { background: #D946EF; }
-.color-btn.green { background: #10B981; }
-.color-btn.orange { background: #F97316; }
+.color-btn.orange { background: #FF7F0F; }
+.color-btn.cyan { background: #00BFBF; }
+.color-btn.pink { background: #FF4081; }
+.color-btn.purple { background: #CE5BFF; }
+.color-btn.green { background: #32CD35; }
+.color-btn.gold { background: #FFBF00; }
+.color-btn.blue { background: #03A9F4; }
+.color-btn.teal { background: #00B7A5; }
 
 .popup-divider {
   width: 1px;
@@ -1806,11 +1882,14 @@ mark {
   cursor: pointer;
 }
 
-.highlight-yellow { background: rgba(245, 158, 11, 0.3); color: inherit; }
-.highlight-blue { background: rgba(59, 130, 246, 0.3); color: inherit; }
-.highlight-pink { background: rgba(217, 70, 239, 0.3); color: inherit; }
-.highlight-green { background: rgba(16, 185, 129, 0.3); color: inherit; }
-.highlight-orange { background: rgba(249, 115, 22, 0.3); color: inherit; }
+.highlight-orange { background: rgba(255, 127, 15, 0.3); color: inherit; }
+.highlight-cyan { background: rgba(0, 191, 191, 0.3); color: inherit; }
+.highlight-pink { background: rgba(255, 64, 129, 0.3); color: inherit; }
+.highlight-purple { background: rgba(206, 91, 255, 0.3); color: inherit; }
+.highlight-green { background: rgba(50, 205, 53, 0.3); color: inherit; }
+.highlight-gold { background: rgba(255, 191, 0, 0.3); color: inherit; }
+.highlight-blue { background: rgba(3, 169, 244, 0.3); color: inherit; }
+.highlight-teal { background: rgba(0, 183, 165, 0.3); color: inherit; }
 
 /* Remove Highlight Popup */
 .remove-highlight-popup {
@@ -3210,42 +3289,43 @@ mark {
   opacity: 1;
 }
 
-/* X6 node block inner styles */
+/* X6 node block inner styles — MMW-inspired pill nodes */
 .x6-block-inner {
-  background: var(--bg-elevated, #1a1a2e);
-  padding: 16px;
   cursor: grab;
   user-select: none;
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-primary, #333);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text-primary, #e5e5e5);
+  font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 400;
+  color: var(--text-primary, #1e293b);
+  border: none;
+  box-shadow: none;
+  transition: transform 0.15s ease;
 }
-
-.x6-block-inner.yellow { border-left: 3px solid #F59E0B; }
-.x6-block-inner.blue { border-left: 3px solid #3B82F6; }
-.x6-block-inner.pink { border-left: 3px solid #D946EF; }
-.x6-block-inner.green { border-left: 3px solid #10B981; }
-.x6-block-inner.orange { border-left: 3px solid #F97316; }
 
 .x6-block-inner:hover {
-  box-shadow: var(--shadow-lg);
-}
-
-.x6-block-inner .block-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 10px;
+  transform: scale(1.02);
 }
 
 .x6-block-inner .block-content {
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 22px;
   color: var(--text-primary);
   word-break: break-word;
   overflow: hidden;
+}
+
+.x6-block-inner .block-content strong {
+  font-weight: 700;
+}
+
+.x6-block-inner .block-content em {
+  font-style: italic;
+}
+
+.x6-block-inner .block-content s {
+  text-decoration: line-through;
+  opacity: 0.6;
 }
 
 .x6-block-inner .block-content.editing {
@@ -3259,48 +3339,33 @@ mark {
   outline: none;
   resize: none;
   font-family: inherit;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 22px;
   width: 100%;
   height: 100%;
 }
 
 .x6-block-inner .collapsed-preview {
-  font-size: 10px;
+  font-size: 12px;
   opacity: 0.6;
 }
 
-/* Mind-map collapse/expand button in block header */
+/* MMW-style collapse button is styled inline — no CSS needed for .x6-collapse-btn */
 .x6-collapse-btn {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  border: 1px solid var(--border-primary, #444);
-  background: transparent;
-  color: var(--text-secondary, #aaa);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-  flex-shrink: 0;
-  transition: background 0.15s, border-color 0.15s;
+  /* Overrides handled via inline styles in component */
+  transition: opacity 0.15s, transform 0.15s;
 }
 
 .x6-collapse-btn:hover {
-  background: var(--bg-secondary, #252540);
-  border-color: var(--accent, #8b5cf6);
-  color: var(--text-primary, #e5e5e5);
+  opacity: 0.85;
+  transform: scale(1.1);
 }
 
-/* X6 selection — style the node itself instead of a separate overlay */
+/* X6 selection — accent ring with pill radius */
 .x6-cell-selected .x6-block-inner {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 8px;
+  border-radius: 14px;
 }
 
 /* Rubberband (multi-select drag rectangle) */
@@ -3309,9 +3374,15 @@ mark {
   background: var(--accent-muted) !important;
 }
 
-/* X6 edge hover */
+/* X6 edge hover — thicker on hover, round caps */
+.x6-edge path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke-width 0.15s ease;
+}
+
 .x6-edge:hover path {
-  stroke-width: 3;
+  stroke-width: 5;
 }
 
 /* X6 ports — hidden (used only for edge routing) */

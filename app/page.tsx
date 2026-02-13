@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import MainToolbar from '@/components/MainToolbar';
 import LeftSidebar from '@/components/LeftSidebar';
 import ChatView from '@/components/ChatView';
@@ -312,7 +312,16 @@ export default function Home() {
   // For the canvas we show all blocks/connections/highlights within the current project
   const projectChatIds = projects[currentProjectId]?.chatIds || [];
   const displayedBlocks = projectChatIds.flatMap(id => (chatsData[id]?.blocks || []).map(b => ({ ...b, chatId: id })));
-  const displayedConnections = projectChatIds.flatMap(id => (chatsData[id]?.connections || []));
+  // Collect raw connections, then enforce single-parent constraint (first edge wins)
+  const rawDisplayedConnections = projectChatIds.flatMap(id => (chatsData[id]?.connections || []));
+  const displayedConnections = useMemo(() => {
+    const parentSeen = new Set<string>();
+    return rawDisplayedConnections.filter(conn => {
+      if (parentSeen.has(conn.to)) return false; // child already has a parent — skip
+      parentSeen.add(conn.to);
+      return true;
+    });
+  }, [rawDisplayedConnections]);
 
   const { pushSnapshot, undo: canvasUndo, redo: canvasRedo, canUndo, canRedo } = useCanvasHistory(
     chatsData, setChatsData, projectChatIds, currentProjectId
@@ -325,7 +334,7 @@ export default function Home() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [highlightColor, setHighlightColor] = useState<BlockColor>('yellow');
+  const [highlightColor, setHighlightColor] = useState<BlockColor>('blue');
   const [chatPaneWidth, setChatPaneWidth] = useState(50); // Percentage width
   
   // Model selection states
@@ -814,25 +823,56 @@ export default function Home() {
     toId: string,
     toPos: ConnectionPosition
   ) => {
-    // Check ALL displayed connections (cross-chat) for duplicates, not just current chat
-    const exists = displayedConnections.some(
+    // Check ALL raw connections (cross-chat) for duplicates
+    const exists = rawDisplayedConnections.some(
       c => c.from === fromId && c.to === toId
     );
-    if (!exists) {
-      pushSnapshot();
-      // Look up the block across all displayed blocks (may be in another chat)
-      const fromBlock = displayedBlocks.find(b => b.id === fromId);
-      const newConnection: Connection = {
-        from: fromId,
-        fromPos,
-        to: toId,
-        toPos,
-        color: fromBlock?.color || 'blue',
-      };
-      updateCurrentChatData({ connections: [...connections, newConnection] });
-      showToast('Connected!');
+    if (exists) return;
+
+    // Prevent reverse duplicate (A→B already exists, block B→A)
+    const reverseExists = rawDisplayedConnections.some(
+      c => c.from === toId && c.to === fromId
+    );
+    if (reverseExists) return;
+
+    // Cycle detection: prevent making A a child of B if B is already a descendant of A
+    const wouldCreateCycle = (parentId: string, childId: string): boolean => {
+      const visited = new Set<string>();
+      const queue = [parentId];
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        if (current === childId) return true;
+        if (visited.has(current)) continue;
+        visited.add(current);
+        // Walk up: find parents of current
+        rawDisplayedConnections.forEach(c => {
+          if (c.to === current) queue.push(c.from);
+        });
+      }
+      return false;
+    };
+    if (wouldCreateCycle(fromId, toId)) return;
+
+    pushSnapshot();
+
+    // Re-parent: if the child (toId) already has a parent, remove old connection first
+    let updatedConnections = [...connections];
+    const existingParentConn = updatedConnections.find(c => c.to === toId);
+    if (existingParentConn && existingParentConn.from !== fromId) {
+      updatedConnections = updatedConnections.filter(c => c !== existingParentConn);
     }
-  }, [displayedBlocks, displayedConnections, connections, showToast, updateCurrentChatData, pushSnapshot]);
+
+    const fromBlock = displayedBlocks.find(b => b.id === fromId);
+    const newConnection: Connection = {
+      from: fromId,
+      fromPos,
+      to: toId,
+      toPos,
+      color: fromBlock?.color || 'blue',
+    };
+    updateCurrentChatData({ connections: [...updatedConnections, newConnection] });
+    showToast('Connected!');
+  }, [displayedBlocks, rawDisplayedConnections, connections, showToast, updateCurrentChatData, pushSnapshot]);
 
   const deleteConnection = useCallback((fromId: string, toId: string) => {
     pushSnapshot();
@@ -2105,6 +2145,7 @@ Confidence: ${decisionData.confidence}/10`;
                 onComplete={handleDecisionComplete}
                 onCancel={handleCancelDecision}
                 onCreateNode={handleCreateNodeFromDecision}
+                modelName={activeChatModel}
               />
             ) : (
               <ChatView

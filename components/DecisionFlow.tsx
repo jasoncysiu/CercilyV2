@@ -8,10 +8,11 @@ interface DecisionFlowProps {
   onComplete: (decisionData: DecisionData) => void;
   onCancel: () => void;
   onCreateNode: (content: string, color: BlockColor, stepKey: string) => void;
+  modelName: string;
 }
 
 // AI synthesis function
-async function getAISynthesis(responses: Record<string, string>): Promise<string> {
+async function getAISynthesis(responses: Record<string, string>, modelName: string): Promise<string> {
   const prompt = `You are a decision-making coach. Analyze this person's thinking using the Fear Setting framework and provide a clear, actionable synthesis.
 
 Decision: ${responses['question']}
@@ -40,7 +41,7 @@ Keep it concise (3-4 paragraphs max). Be direct and honest.`;
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       messages: [{ role: 'user', content: prompt }],
-      stream: false,
+      modelName,
     }),
   });
 
@@ -49,7 +50,7 @@ Keep it concise (3-4 paragraphs max). Be direct and honest.`;
   }
 
   const data = await response.json();
-  return data.message || 'Unable to generate synthesis.';
+  return data.content || 'Unable to generate synthesis.';
 }
 
 interface Step {
@@ -65,14 +66,14 @@ const STEPS: Step[] = [
     key: 'question',
     question: 'What decision are you facing?',
     placeholder: 'e.g., Should I quit my job and go full-time on my startup?',
-    color: 'yellow',
+    color: 'blue',
     emoji: '🎯'
   },
   {
     key: 'context',
     question: "What's the situation? Give me some context.",
     placeholder: "e.g., I've been working on this for 6 months, have some traction...",
-    color: 'blue',
+    color: 'cyan',
     emoji: '📋'
   },
   {
@@ -93,7 +94,7 @@ const STEPS: Step[] = [
     key: 'best-case',
     question: "What's the best realistic outcome?",
     placeholder: 'e.g., Reach ramen profitability, have freedom, prove the concept...',
-    color: 'green',
+    color: 'teal',
     emoji: '✨'
   },
   {
@@ -105,12 +106,44 @@ const STEPS: Step[] = [
   },
 ];
 
-export default function DecisionFlow({ onComplete, onCancel, onCreateNode }: DecisionFlowProps) {
+async function getBrainstormSuggestions(decisionQuestion: string, modelName: string): Promise<string[]> {
+  const prompt = `Given this decision: "${decisionQuestion}"
+
+Generate exactly 4 short guiding questions (one sentence each) that would help someone articulate the context and situation around this decision. Focus on:
+- Timeline and urgency
+- Stakeholders and relationships
+- What they've already tried or considered
+- Key constraints or resources
+
+Return ONLY the 4 questions, one per line, no numbering or bullets.`;
+
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages: [{ role: 'user', content: prompt }],
+      modelName,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to get brainstorm suggestions');
+  }
+
+  const data = await response.json();
+  const text = data.content || '';
+  return text.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+}
+
+export default function DecisionFlow({ onComplete, onCancel, onCreateNode, modelName }: DecisionFlowProps) {
   const [step, setStep] = useState(0);
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [currentInput, setCurrentInput] = useState('');
   const [aiSynthesis, setAiSynthesis] = useState<string>('');
   const [isLoadingSynthesis, setIsLoadingSynthesis] = useState(false);
+  const [brainstormSuggestions, setBrainstormSuggestions] = useState<string[]>([]);
+  const [isBrainstorming, setIsBrainstorming] = useState(false);
+  const [showBrainstorm, setShowBrainstorm] = useState(false);
 
   const currentStep = STEPS[step];
   const isLastStep = step === STEPS.length - 1;
@@ -131,7 +164,7 @@ export default function DecisionFlow({ onComplete, onCancel, onCreateNode }: Dec
       setIsLoadingSynthesis(true);
 
       try {
-        const synthesis = await getAISynthesis(newResponses);
+        const synthesis = await getAISynthesis(newResponses, modelName);
         setAiSynthesis(synthesis);
       } catch (error) {
         console.error('Error getting AI synthesis:', error);
@@ -157,6 +190,27 @@ export default function DecisionFlow({ onComplete, onCancel, onCreateNode }: Dec
       e.preventDefault();
       handleNext();
     }
+  };
+
+  const handleBrainstorm = async () => {
+    const question = responses['question'];
+    if (!question || !modelName) return;
+    setIsBrainstorming(true);
+    try {
+      const suggestions = await getBrainstormSuggestions(question, modelName);
+      setBrainstormSuggestions(suggestions);
+      setShowBrainstorm(true);
+    } catch (error) {
+      console.error('Error getting brainstorm suggestions:', error);
+    } finally {
+      setIsBrainstorming(false);
+    }
+  };
+
+  const handleChipClick = (suggestion: string) => {
+    setCurrentInput(prev =>
+      prev ? `${prev}\n\n${suggestion} ` : `${suggestion} `
+    );
   };
 
   if (isSynthesisPhase) {
@@ -223,6 +277,40 @@ export default function DecisionFlow({ onComplete, onCancel, onCreateNode }: Dec
             className="df-textarea"
             autoFocus
           />
+
+          {/* Brainstorm — only on context step (step 1) */}
+          {step === 1 && (
+            <>
+              {!showBrainstorm && !isBrainstorming && (
+                <button className="df-brainstorm-btn" onClick={handleBrainstorm}>
+                  <Sparkles size={14} />
+                  <span>Help me think through this</span>
+                </button>
+              )}
+              {isBrainstorming && (
+                <div className="df-brainstorm-loading">
+                  <div className="df-loading-spinner" />
+                  <span>Generating prompts...</span>
+                </div>
+              )}
+              {showBrainstorm && brainstormSuggestions.length > 0 && (
+                <div className="df-brainstorm-panel">
+                  <span className="df-brainstorm-label">Suggested prompts</span>
+                  <div className="df-brainstorm-chips">
+                    {brainstormSuggestions.map((suggestion, i) => (
+                      <button
+                        key={i}
+                        className="df-brainstorm-chip"
+                        onClick={() => handleChipClick(suggestion)}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
           {/* Navigation */}
           <div className="df-nav">

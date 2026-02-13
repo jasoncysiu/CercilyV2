@@ -10,11 +10,11 @@ interface NewBlockInputProps {
   onCreate: (text: string, color: BlockColor) => void;
 }
 
-const colors: BlockColor[] = ['yellow', 'blue', 'pink', 'green', 'orange'];
+const colors: BlockColor[] = ['orange', 'cyan', 'pink', 'purple', 'green', 'gold', 'blue', 'teal'];
 
 export default function NewBlockInput({ x, y, onCancel, onCreate }: NewBlockInputProps) {
   const [text, setText] = useState('');
-  const [selectedColor, setSelectedColor] = useState<BlockColor>('yellow');
+  const [selectedColor, setSelectedColor] = useState<BlockColor>('blue');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {

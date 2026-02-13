@@ -12,14 +12,17 @@ interface SelectionPopupProps {
   currentColor?: BlockColor;
 }
 
-const colors: BlockColor[] = ['yellow', 'blue', 'pink', 'green', 'orange'];
+const colors: BlockColor[] = ['orange', 'cyan', 'pink', 'purple', 'green', 'gold', 'blue', 'teal'];
 
 const colorLabels: Record<BlockColor, string> = {
-  yellow: '💛 Yellow',
-  blue: '💙 Blue',
-  pink: '💗 Pink',
-  green: '💚 Green',
-  orange: '🧡 Orange',
+  orange: 'Orange',
+  cyan: 'Cyan',
+  pink: 'Pink',
+  purple: 'Purple',
+  green: 'Green',
+  gold: 'Gold',
+  blue: 'Blue',
+  teal: 'Teal',
 };
 
 export default function SelectionPopup({
@@ -28,7 +31,7 @@ export default function SelectionPopup({
   y,
   onColorClick,
   onCopyClick,
-  currentColor = 'yellow',
+  currentColor = 'blue',
 }: SelectionPopupProps) {
   return (
     <div

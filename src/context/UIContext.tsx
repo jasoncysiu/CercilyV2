@@ -46,7 +46,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [toastVisible, setToastVisible] = useState(false);
   const [selectionPopup, setSelectionPopup] = useState<SelectionPopupState>({ visible: false, x: 0, y: 0, text: '', messageId: '', startOffset: 0, endOffset: 0 });
   const [removeHighlightPopup, setRemoveHighlightPopup] = useState<RemoveHighlightPopupState>({ visible: false, x: 0, y: 0, highlightId: null });
-  const [highlightColor, setHighlightColor] = useState<BlockColor>('yellow');
+  const [highlightColor, setHighlightColor] = useState<BlockColor>('blue');
   const [chatPaneWidth, setChatPaneWidth] = useState(50); // Percentage width
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
 

@@ -28,8 +28,6 @@ export default function MainToolbar({
         </button>
         <div className="toolbar-brand">
           <span className="platform-name">Cercily</span>
-          <span className="title-separator">/</span>
-          <span className="chat-title">{chatTitle}</span>
         </div>
       </div>
       <div className="toolbar-right">

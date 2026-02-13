@@ -20,18 +20,24 @@ export const defaultPorts = [
   { id: 'right', group: 'right' },
 ];
 
-// Color map for edge strokes
+// MMW 8-color branch palette
 const edgeColorMap: Record<BlockColor, string> = {
-  yellow: '#EAB308',
-  blue: '#3B82F6',
-  pink: '#EC4899',
-  green: '#22C55E',
-  orange: '#F97316',
+  orange: '#FF7F0F',
+  cyan: '#00BFBF',
+  pink: '#FF4081',
+  purple: '#CE5BFF',
+  green: '#32CD35',
+  gold: '#FFBF00',
+  blue: '#03A9F4',
+  teal: '#00B7A5',
 };
 
 export function getEdgeStrokeColor(color: BlockColor): string {
-  return edgeColorMap[color] || '#94a3b8';
+  return edgeColorMap[color] || '#03A9F4';
 }
+
+// Shared color map for use by other components
+export { edgeColorMap as branchColorMap };
 
 // Convert a Block to X6 node metadata
 export function blockToX6Node(block: Block, hasChildren = false) {
@@ -55,7 +61,7 @@ export function connectionEdgeId(conn: Connection): string {
   return `edge-${conn.from}-${conn.fromPos}-${conn.to}-${conn.toPos}`;
 }
 
-// Convert a Connection to X6 edge metadata
+// Convert a Connection to X6 edge metadata (MMW-style thick Bezier curves)
 export function connectionToX6Edge(conn: Connection) {
   return {
     id: connectionEdgeId(conn),
@@ -65,7 +71,9 @@ export function connectionToX6Edge(conn: Connection) {
     attrs: {
       line: {
         stroke: getEdgeStrokeColor(conn.color),
-        strokeWidth: 2,
+        strokeWidth: 4,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
         targetMarker: null,
       },
     },

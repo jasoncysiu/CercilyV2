@@ -27,6 +27,8 @@ import {
   Pencil,
   X,
   ChevronsUpDown,
+  Target,
+  MessageSquare,
 } from 'lucide-react';
 
 // Register the React shape for our blocks
@@ -618,68 +620,46 @@ export default function X6CanvasPanel({
   return (
     <div className="canvas-panel">
       <Portal />
-      <div className="canvas-header">
-        <div className="canvas-title">
-          Canvas <span style={{ fontSize: '12px', opacity: 0.6 }}>({visibleBlocks.length})</span>
-        </div>
-        <div className="canvas-tools">
-          <button
-            className="canvas-tool-btn"
-            onClick={() => {
-              if (areAllCollapsed) onExpandAll?.();
-              else onCollapseAll?.();
-            }}
-            title={areAllCollapsed ? 'Expand all' : 'Collapse all'}
-          >
-            {areAllCollapsed ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
-          </button>
-          <button
-            className="canvas-tool-btn"
-            onClick={() => onRearrange?.('horizontal')}
-            title="Horizontal tree layout"
-          >
-            <Columns3 size={16} />
-          </button>
-          <button
-            className="canvas-tool-btn"
-            onClick={() => onRearrange?.('vertical')}
-            title="Vertical tree layout"
-          >
-            <Rows3 size={16} />
-          </button>
-          <button
-            className="canvas-tool-btn synthesize-btn"
-            onClick={onSynthesizeDecision}
-            disabled={visibleBlocks.length < 3}
-            title={
-              visibleBlocks.length < 3
-                ? 'Add at least 3 blocks to synthesize'
-                : 'Synthesize Decision from Canvas'
-            }
-            style={{
-              opacity: visibleBlocks.length < 3 ? 0.4 : 1,
-              cursor: visibleBlocks.length < 3 ? 'not-allowed' : 'pointer',
-            }}
-          >
-            <Lightbulb size={16} />
-          </button>
-          <button
-            className={`canvas-tool-btn ${showOutline ? 'active' : ''}`}
-            onClick={onToggleOutline}
-            title="Show Outline"
-          >
-            <LayoutList size={16} />
-          </button>
-          <button className="canvas-tool-btn" onClick={onUndo} disabled={!canUndo} title="Undo (Cmd+Z)">
-            <Undo2 size={16} />
-          </button>
-          <button className="canvas-tool-btn" onClick={onRedo} disabled={!canRedo} title="Redo (Cmd+Shift+Z)">
-            <Redo2 size={16} />
-          </button>
-          <button className="canvas-tool-btn" onClick={onClearCanvas} title="Clear canvas">
-            <Trash2 size={16} />
-          </button>
-        </div>
+
+      {/* Floating canvas tools — bottom center */}
+      <div className="canvas-floating-tools">
+        <button
+          className="canvas-tool-btn"
+          onClick={() => {
+            if (areAllCollapsed) onExpandAll?.();
+            else onCollapseAll?.();
+          }}
+          title={areAllCollapsed ? 'Expand all' : 'Collapse all'}
+        >
+          {areAllCollapsed ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
+        </button>
+        <button className="canvas-tool-btn" onClick={() => onRearrange?.('horizontal')} title="Horizontal layout">
+          <Columns3 size={16} />
+        </button>
+        <button className="canvas-tool-btn" onClick={() => onRearrange?.('vertical')} title="Vertical layout">
+          <Rows3 size={16} />
+        </button>
+        <button
+          className="canvas-tool-btn synthesize-btn"
+          onClick={onSynthesizeDecision}
+          disabled={visibleBlocks.length < 3}
+          title={visibleBlocks.length < 3 ? 'Add at least 3 blocks to synthesize' : 'Synthesize Decision'}
+          style={{ opacity: visibleBlocks.length < 3 ? 0.4 : 1, cursor: visibleBlocks.length < 3 ? 'not-allowed' : 'pointer' }}
+        >
+          <Lightbulb size={16} />
+        </button>
+        <button className={`canvas-tool-btn ${showOutline ? 'active' : ''}`} onClick={onToggleOutline} title="Outline">
+          <LayoutList size={16} />
+        </button>
+        <button className="canvas-tool-btn" onClick={onUndo} disabled={!canUndo} title="Undo">
+          <Undo2 size={16} />
+        </button>
+        <button className="canvas-tool-btn" onClick={onRedo} disabled={!canRedo} title="Redo">
+          <Redo2 size={16} />
+        </button>
+        <button className="canvas-tool-btn" onClick={onClearCanvas} title="Clear canvas">
+          <Trash2 size={16} />
+        </button>
       </div>
 
       <div

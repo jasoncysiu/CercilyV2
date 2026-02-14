@@ -39,21 +39,28 @@ export function getEdgeStrokeColor(color: BlockColor): string {
 // Shared color map for use by other components
 export { edgeColorMap as branchColorMap };
 
+// Read the current font size from the CSS variable (default 14px)
+function getCanvasFontSize(): number {
+  if (typeof document === 'undefined') return 14;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--canvas-font-size').trim();
+  const parsed = parseFloat(raw);
+  return isNaN(parsed) ? 14 : parsed;
+}
+
 // Calculate dynamic node size based on text content
 export function calculateNodeSize(text: string, isCollapsed: boolean): { width: number; height: number } {
   if (isCollapsed) {
     return { width: 160, height: 50 };
   }
 
+  const fontSize = getCanvasFontSize();
+  // Average character width is roughly 0.55× the font size for proportional fonts
+  const avgCharWidth = fontSize * 0.55;
+  const horizontalPadding = 44; // 22px each side
+  const verticalPadding = 24 + fontSize; // 12px each side + extra buffer for line descenders
+
   const charCount = text.length;
   const lineBreaks = (text.match(/\n/g) || []).length;
-
-  // Estimate chars per line based on a target width
-  // ~7px per char at 14px font, with 44px horizontal padding
-  const charsPerLine = 30;
-
-  // Calculate how many visual lines (word-wrap estimate + explicit line breaks)
-  const wrappedLines = Math.ceil(charCount / charsPerLine) + lineBreaks;
 
   // Width: scale with text but clamp between 180 and 420
   let width: number;
@@ -69,11 +76,17 @@ export function calculateNodeSize(text: string, isCollapsed: boolean): { width: 
     width = 400;
   }
 
-  // Height: base 50px + ~22px per line, clamped between 60 and 400
-  const lineHeight = 22;
-  const verticalPadding = 28;
+  // Chars that fit per line given the node width and font size
+  const contentWidth = width - horizontalPadding;
+  const charsPerLine = Math.max(1, Math.floor(contentWidth / avgCharWidth));
+
+  // Calculate how many visual lines (word-wrap estimate + explicit line breaks)
+  const wrappedLines = Math.ceil(charCount / charsPerLine) + lineBreaks;
+
+  // Height: use CSS line-height (1.5× font size) per line + vertical padding
+  const lineHeight = fontSize * 1.5;
   let height = verticalPadding + wrappedLines * lineHeight;
-  height = Math.max(60, Math.min(400, height));
+  height = Math.max(60, Math.min(500, height));
 
   return { width, height };
 }

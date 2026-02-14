@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import MainToolbar from '@/components/MainToolbar';
 import LeftSidebar from '@/components/LeftSidebar';
+import SearchModal from '@/components/SearchModal';
 import ChatView from '@/components/ChatView';
 import CanvasPanel from '@/components/X6CanvasWrapper';
 import SelectionPopup from '@/components/SelectionPopup';
@@ -17,6 +17,7 @@ import SynthesisModal from '@/components/SynthesisModal';
 import DecisionJournalView from '@/components/DecisionJournalView';
 import ReviewModal from '@/components/ReviewModal';
 import { Block, Connection, BlockColor, ToolType, ConnectionPosition, Message, ChatItem, Highlight, ChatData, Project, ProjectItem, DecisionData, ProjectWithDecision, SynthesisResult, SynthesizedDecision } from '@/lib/types';
+import { PanelLeft } from 'lucide-react';
 import { generateId } from '@/lib/decisionStore';
 import { useCanvasHistory } from '@/hooks/useCanvasHistory';
 
@@ -343,6 +344,7 @@ export default function Home() {
   const [availableModels, setAvailableModels] = useState<string[]>([]); // Initialize as empty
   const [activeChatModel, setActiveChatModel] = useState<string>(''); // Initialize as empty
   const [showOutline, setShowOutline] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
 
   // Project context modal state
   const [contextModalOpen, setContextModalOpen] = useState(false);
@@ -358,6 +360,30 @@ export default function Home() {
   useEffect(() => {
     const savedPrompt = localStorage.getItem('cercily-decision-prompt');
     if (savedPrompt) setCustomDecisionPrompt(savedPrompt);
+  }, []);
+
+  // Apply saved canvas font on mount
+  useEffect(() => {
+    const savedFont = localStorage.getItem('cercily-canvas-font');
+    if (savedFont) {
+      const fontMap: Record<string, string> = {
+        basic: "'Aino', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        elegant: "'PT Serif', Georgia, serif",
+        montserrat: "'Montserrat', -apple-system, sans-serif",
+        monospace: "'SF Mono', 'Fira Code', 'Courier New', monospace",
+        modern: "'Bebas Neue', Impact, sans-serif",
+      };
+      if (fontMap[savedFont]) {
+        document.documentElement.style.setProperty('--canvas-font', fontMap[savedFont]);
+      }
+    }
+    const savedSize = localStorage.getItem('cercily-text-size');
+    if (savedSize) {
+      const sizeMap: Record<string, string> = { small: '13px', mid: '15px', large: '17px' };
+      if (sizeMap[savedSize]) {
+        document.documentElement.style.setProperty('--canvas-font-size', sizeMap[savedSize]);
+      }
+    }
   }, []);
 
   // Decision mode state
@@ -2171,15 +2197,14 @@ Confidence: ${decisionData.confidence}/10`;
 
   return (
     <>
-      <MainToolbar
-        onToggleSidebar={() => setSidebarVisible(prev => !prev)}
-        chatTitle={currentChat.title}
-        availableModels={availableModels}
-        activeChatModel={activeChatModel}
-        onSetActiveChatModel={setActiveChatModel}
-        onOpenSettings={() => setShowSettingsPanel(true)}
-      />
-      <div className="main-content">
+      <div className="main-content fullscreen">
+        {!sidebarVisible && (
+          <div className="sidebar-rail">
+            <button className="sidebar-rail-btn" onClick={() => setSidebarVisible(true)} title="Open sidebar">
+              <PanelLeft size={18} />
+            </button>
+          </div>
+        )}
         <div className={`sidebar-wrapper ${sidebarVisible ? 'open' : 'closed'}`}>
           <LeftSidebar
             projects={projectItems}
@@ -2201,6 +2226,10 @@ Confidence: ${decisionData.confidence}/10`;
               const reviewDate = new Date(d.reviewDate);
               return reviewDate <= new Date();
             }).length}
+            onCollapse={() => setSidebarVisible(false)}
+            onOpenSearch={() => setShowSearchModal(true)}
+            onOpenSettings={() => setShowSettingsPanel(true)}
+            onToggleSidebar={() => setSidebarVisible(prev => !prev)}
           />
         </div>
         <div className={`panes-container ${isResizing ? 'is-resizing' : ''}`}>
@@ -2283,6 +2312,17 @@ Confidence: ${decisionData.confidence}/10`;
           </div>
         </div>
       </div>
+      <SearchModal
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+        projects={projectItems}
+        blocks={displayedBlocks}
+        messages={messages}
+        chatTitle={currentChat.title}
+        onSelectChat={handleSelectChat}
+        onSelectProject={handleSelectProject}
+        onNavigateToBlock={handleNavigateToNode}
+      />
       <SelectionPopup
         visible={selectionPopup.visible}
         x={selectionPopup.x}

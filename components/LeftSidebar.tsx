@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { ProjectItem } from '@/lib/types';
-import { ChevronRight, ChevronDown, Edit, Plus, Trash2, FileText, Target, BookOpen, MessageSquare, MoreHorizontal } from 'lucide-react';
+import { ChevronRight, ChevronDown, Edit, Plus, Trash2, FileText, Target, BookOpen, MessageSquare, MoreHorizontal, PanelLeftClose, Search, Settings } from 'lucide-react';
 
 interface LeftSidebarProps {
   projects: ProjectItem[];
@@ -20,9 +20,13 @@ interface LeftSidebarProps {
   onStartDecision: () => void;
   onOpenDecisionJournal: () => void;
   pendingReviewCount?: number;
+  onCollapse?: () => void;
+  onOpenSearch?: () => void;
+  onOpenSettings?: () => void;
+  onToggleSidebar?: () => void;
 }
 
-export default function LeftSidebar({ projects, currentChatId, onSelectChat, onSelectProject, onDeleteChat, onNewProject, onNewChat, onDeleteProject, onNewChatInProject, onRenameProject, onRenameChat, onOpenProjectContext, onStartDecision, onOpenDecisionJournal, pendingReviewCount = 0 }: LeftSidebarProps) {
+export default function LeftSidebar({ projects, currentChatId, onSelectChat, onSelectProject, onDeleteChat, onNewProject, onNewChat, onDeleteProject, onNewChatInProject, onRenameProject, onRenameChat, onOpenProjectContext, onStartDecision, onOpenDecisionJournal, pendingReviewCount = 0, onCollapse, onOpenSearch, onOpenSettings, onToggleSidebar }: LeftSidebarProps) {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
     new Set(projects.map(p => p.id))
   );
@@ -286,33 +290,43 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
   return (
     <div className="left-sidebar">
       <div className="sidebar-header">
-        <input type="text" className="search-box" placeholder="Search..." />
-        <div className="compose-wrapper" ref={composeRef}>
-          <button
-            className={`compose-btn ${showComposeMenu ? 'active' : ''}`}
-            onClick={() => setShowComposeMenu(!showComposeMenu)}
-            aria-label="Create new"
-          >
-            <Plus size={18} />
+        <button className="sidebar-header-btn" onClick={onCollapse} title="Collapse sidebar">
+          <PanelLeftClose size={18} />
+        </button>
+        <div className="sidebar-header-right">
+          <button className="sidebar-header-btn" onClick={onOpenSearch} title="Search">
+            <Search size={18} />
           </button>
-          {showComposeMenu && (
-            <div className="compose-dropdown">
-              <button
-                className="compose-dropdown-item"
-                onClick={() => { onStartDecision(); setShowComposeMenu(false); }}
-              >
-                <Target size={15} />
-                <span>New Decision</span>
-              </button>
-              <button
-                className="compose-dropdown-item"
-                onClick={() => { onNewChat(); setShowComposeMenu(false); }}
-              >
-                <MessageSquare size={15} />
-                <span>New Chat</span>
-              </button>
-            </div>
-          )}
+          <div className="sidebar-compose-wrapper" ref={composeRef}>
+            <button
+              className={`sidebar-header-btn ${showComposeMenu ? 'active' : ''}`}
+              onClick={() => setShowComposeMenu(prev => !prev)}
+              title="Create new"
+            >
+              <Plus size={18} />
+            </button>
+            {showComposeMenu && (
+              <div className="sidebar-compose-dropdown">
+                <button
+                  className="compose-dropdown-item"
+                  onClick={() => { onStartDecision(); setShowComposeMenu(false); }}
+                >
+                  <Target size={15} />
+                  <span>New Decision</span>
+                </button>
+                <button
+                  className="compose-dropdown-item"
+                  onClick={() => { onNewChat(); setShowComposeMenu(false); }}
+                >
+                  <MessageSquare size={15} />
+                  <span>New Chat</span>
+                </button>
+              </div>
+            )}
+          </div>
+          <button className="sidebar-header-btn" onClick={onOpenSettings} title="Settings">
+            <Settings size={18} />
+          </button>
         </div>
       </div>
       <div className="project-list">

@@ -1,4 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -49,6 +52,10 @@
   /* Scrollbar */
   --scrollbar-track: transparent;
   --scrollbar-thumb: #D8D8E0;
+
+  /* Canvas font (customizable via settings) */
+  --canvas-font: 'Aino', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --canvas-font-size: 14px;
 }
 
 /* Dark Theme - System Preference */
@@ -173,12 +180,12 @@ html, body {
 }
 
 body {
-  font-family: 'Aino', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--canvas-font, 'Aino', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   background: var(--bg-primary);
   color: var(--text-primary);
   height: 100vh;
   overflow: hidden;
-  font-size: 14px;
+  font-size: var(--canvas-font-size, 14px);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -302,11 +309,58 @@ h1 {
 }
 
 .sidebar-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-primary);
+  padding: 8px 8px 4px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+}
+
+.sidebar-header-right {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.sidebar-header-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.sidebar-header-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.sidebar-header-btn.active {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.sidebar-compose-wrapper {
+  position: relative;
+}
+
+.sidebar-compose-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  min-width: 180px;
+  z-index: 100;
+  animation: compose-dropdown-in 0.12s ease-out;
 }
 
 .search-box {
@@ -317,7 +371,7 @@ h1 {
   border: 1px solid var(--border-primary);
   border-radius: 8px;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--canvas-font-size, 14px);
   transition: all 0.15s ease;
 }
 
@@ -390,7 +444,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: var(--canvas-font-size, 14px);
   font-weight: 500;
   color: var(--text-primary);
   transition: background 0.1s ease;
@@ -417,7 +471,7 @@ h1 {
   border-bottom: 1px solid var(--border-secondary);
   border-radius: 0;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--canvas-font-size, 14px);
   font-weight: 500;
   color: var(--text-secondary);
   transition: all 0.15s ease;
@@ -498,7 +552,7 @@ h1 {
 }
 
 .project-title-text {
-  font-size: 13px;
+  font-size: var(--canvas-font-size, 14px);
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
@@ -517,7 +571,7 @@ h1 {
   border: 2px solid var(--accent);
   border-radius: 6px;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--canvas-font-size, 14px);
   font-weight: 500;
   outline: none;
   box-shadow: 0 0 0 3px var(--accent-muted);
@@ -1112,6 +1166,10 @@ h1 {
   height: calc(100vh - 56px);
 }
 
+.main-content.fullscreen {
+  height: 100vh;
+}
+
 .panes-container {
   display: flex;
   flex: 1;
@@ -1162,7 +1220,7 @@ h1 {
 }
 
 .chat-header-title {
-  font-size: 14px;
+  font-size: var(--canvas-font-size, 14px);
   font-weight: 600;
   color: var(--text-primary);
   display: flex;
@@ -1188,7 +1246,7 @@ h1 {
 .message-bubble {
   padding: 14px 18px;
   border-radius: 16px;
-  font-size: 14px;
+  font-size: var(--canvas-font-size, 14px);
   line-height: 1.6;
 }
 
@@ -1242,7 +1300,7 @@ h1 {
   background: transparent;
   border: none;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--canvas-font-size, 14px);
   resize: none;
   padding: 6px 0;
   font-family: inherit;
@@ -1291,6 +1349,56 @@ h1 {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+
+/* Thin left rail — visible when sidebar is collapsed */
+.sidebar-rail {
+  width: 44px;
+  min-width: 44px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 10px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+}
+
+.sidebar-rail-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.sidebar-rail-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* Floating canvas tools — bottom center */
+.canvas-floating-tools {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
 }
 
 .canvas-header {
@@ -1305,7 +1413,7 @@ h1 {
 }
 
 .canvas-title {
-  font-size: 14px;
+  font-size: var(--canvas-font-size, 14px);
   font-weight: 600;
   color: var(--text-primary);
   display: flex;
@@ -2566,7 +2674,7 @@ mark {
 
 .block-content.editing textarea {
   line-height: 1.6;
-  font-size: 14px;
+  font-size: var(--canvas-font-size, 14px);
   color: var(--text-primary);
   padding: 4px 0;
 }
@@ -2999,12 +3107,232 @@ mark {
   color: var(--text-secondary);
 }
 
+/* Font selector in settings */
+.font-select-wrapper {
+  position: relative;
+}
+
+.font-select {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%239898A8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  transition: border-color 0.2s ease;
+}
+
+.font-select:hover {
+  border-color: var(--text-tertiary);
+}
+
+.font-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.font-preview {
+  margin-top: 10px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 /* Project Context Modal */
 .modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   z-index: 9998;
+}
+
+/* Search Modal */
+.search-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9998;
+}
+
+.search-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 520px;
+  max-height: 480px;
+  z-index: 9999;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.search-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 0;
+}
+
+.search-modal-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.search-modal-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 24px;
+  padding: 10px 14px;
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  background: var(--bg-primary);
+}
+
+.search-modal-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.search-modal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: var(--canvas-font-size, 14px);
+  font-family: inherit;
+}
+
+.search-modal-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Search tabs */
+.search-modal-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px 12px;
+}
+
+.search-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  border-radius: 20px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.search-tab:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.search-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.search-modal-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 12px 12px;
+}
+
+.search-modal-empty {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.search-modal-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.search-modal-empty-hint {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.search-modal-result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.search-modal-result:hover {
+  background: var(--bg-secondary);
+}
+
+.search-modal-result-title {
+  font-size: var(--canvas-font-size, 14px);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.search-modal-result-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-modal-result-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+  padding: 1px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.search-modal-result-snippet {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .project-context-modal {
@@ -3455,10 +3783,23 @@ mark {
   left: 0;
 }
 
-/* Allow collapse indicator and add-branch button to overflow outside node bounds */
+/* Smooth transition for node collapse/expand (size + position) */
+.x6-node {
+  transition: transform 0.52s cubic-bezier(0.16, 1, 0.3, 1);
+}
 .x6-node foreignObject {
   overflow: visible;
+  transition: width 0.52s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.52s cubic-bezier(0.16, 1, 0.3, 1);
 }
+/* Disable node transitions during drag to prevent lag */
+.x6-nodes-dragging .x6-node {
+  transition: none !important;
+}
+.x6-nodes-dragging .x6-node foreignObject {
+  transition: none !important;
+}
+
 .x6-node foreignObject > body,
 .x6-node foreignObject > body > div {
   overflow: visible !important;
@@ -3489,9 +3830,9 @@ mark {
 .x6-block-inner {
   cursor: grab;
   user-select: none;
-  font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 16px;
-  line-height: 22px;
+  font-family: var(--canvas-font, 'Aino', sans-serif);
+  font-size: var(--canvas-font-size, 14px);
+  line-height: 1.5;
   font-weight: 400;
   color: var(--text-primary, #1e293b);
   border: none;
@@ -3504,8 +3845,8 @@ mark {
 }
 
 .x6-block-inner .block-content {
-  font-size: 16px;
-  line-height: 22px;
+  font-size: var(--canvas-font-size, 14px);
+  line-height: 1.5;
   color: var(--text-primary);
   word-break: break-word;
   overflow: hidden;
@@ -3535,8 +3876,8 @@ mark {
   outline: none;
   resize: none;
   font-family: inherit;
-  font-size: 16px;
-  line-height: 22px;
+  font-size: var(--canvas-font-size, 14px);
+  line-height: 1.5;
   width: 100%;
   height: 100%;
 }

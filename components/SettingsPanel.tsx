@@ -1,10 +1,27 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Monitor, Sun, Moon, Key, Eye, EyeOff, Check, Sparkles, RotateCcw } from 'lucide-react';
+import { X, Monitor, Sun, Moon, Key, Eye, EyeOff, Check, Sparkles, RotateCcw, Type } from 'lucide-react';
 import ModelSelector from './ModelSelector';
 
 type Theme = 'system' | 'light' | 'dark';
+
+type CanvasFont = 'basic' | 'elegant' | 'montserrat' | 'monospace' | 'modern';
+type TextSize = 'small' | 'mid' | 'large';
+
+const TEXT_SIZE_OPTIONS: { value: TextSize; label: string; size: string }[] = [
+  { value: 'small', label: 'Small', size: '13px' },
+  { value: 'mid', label: 'Mid', size: '15px' },
+  { value: 'large', label: 'Large', size: '17px' },
+];
+
+const FONT_OPTIONS: { value: CanvasFont; label: string; family: string }[] = [
+  { value: 'basic', label: 'Basic', family: "'Aino', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+  { value: 'elegant', label: 'Elegant', family: "'PT Serif', Georgia, serif" },
+  { value: 'montserrat', label: 'Montserrat', family: "'Montserrat', -apple-system, sans-serif" },
+  { value: 'monospace', label: 'Monospace', family: "'SF Mono', 'Fira Code', 'Courier New', monospace" },
+  { value: 'modern', label: 'Modern', family: "'Bebas Neue', Impact, sans-serif" },
+];
 
 const DEFAULT_DECISION_PROMPT = `You are a decision-making coach. Analyze this person's thinking using the Fear Setting framework and provide a clear, actionable synthesis.
 
@@ -32,6 +49,8 @@ export default function SettingsPanel({ isOpen, onClose, availableModels, onSele
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
   const [promptSaved, setPromptSaved] = useState(false);
+  const [canvasFont, setCanvasFont] = useState<CanvasFont>('basic');
+  const [textSize, setTextSize] = useState<TextSize>('mid');
 
   // Load theme from localStorage on mount
   useEffect(() => {
@@ -58,6 +77,51 @@ export default function SettingsPanel({ isOpen, onClose, availableModels, onSele
       setCustomPrompt(savedPrompt);
     }
   }, []);
+
+  // Load canvas font from localStorage on mount
+  useEffect(() => {
+    const savedFont = localStorage.getItem('cercily-canvas-font') as CanvasFont | null;
+    if (savedFont) {
+      setCanvasFont(savedFont);
+      applyCanvasFont(savedFont);
+    }
+  }, []);
+
+  // Load text size from localStorage on mount
+  useEffect(() => {
+    const savedSize = localStorage.getItem('cercily-text-size') as TextSize | null;
+    if (savedSize) {
+      setTextSize(savedSize);
+      applyTextSize(savedSize);
+    }
+  }, []);
+
+  const applyTextSize = (sizeKey: TextSize) => {
+    const option = TEXT_SIZE_OPTIONS.find(s => s.value === sizeKey);
+    if (option) {
+      document.documentElement.style.setProperty('--canvas-font-size', option.size);
+    }
+  };
+
+  const handleTextSizeChange = (sizeKey: TextSize) => {
+    setTextSize(sizeKey);
+    localStorage.setItem('cercily-text-size', sizeKey);
+    applyTextSize(sizeKey);
+    window.dispatchEvent(new Event('cercily-text-size-change'));
+  };
+
+  const applyCanvasFont = (fontKey: CanvasFont) => {
+    const option = FONT_OPTIONS.find(f => f.value === fontKey);
+    if (option) {
+      document.documentElement.style.setProperty('--canvas-font', option.family);
+    }
+  };
+
+  const handleFontChange = (fontKey: CanvasFont) => {
+    setCanvasFont(fontKey);
+    localStorage.setItem('cercily-canvas-font', fontKey);
+    applyCanvasFont(fontKey);
+  };
 
   const handleSaveApiKey = () => {
     if (geminiApiKey.trim()) {
@@ -154,6 +218,52 @@ export default function SettingsPanel({ isOpen, onClose, availableModels, onSele
                 <Moon size={18} />
                 <span>Dark</span>
               </button>
+            </div>
+          </div>
+
+          <div className="settings-divider" />
+
+          {/* Canvas Font Section */}
+          <div className="settings-section">
+            <label className="settings-label">
+              <Type size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+              Canvas Font
+            </label>
+            <p className="settings-hint">Choose the typeface for canvas nodes</p>
+            <div className="font-select-wrapper">
+              <select
+                className="font-select"
+                value={canvasFont}
+                onChange={(e) => handleFontChange(e.target.value as CanvasFont)}
+              >
+                {FONT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="font-preview" style={{ fontFamily: FONT_OPTIONS.find(f => f.value === canvasFont)?.family }}>
+              The quick brown fox jumps over the lazy dog
+            </div>
+          </div>
+
+          <div className="settings-divider" />
+
+          {/* Text Size Section */}
+          <div className="settings-section">
+            <label className="settings-label">Text Size</label>
+            <p className="settings-hint">Choose the text size for both panes</p>
+            <div className="theme-buttons">
+              {TEXT_SIZE_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  className={`theme-btn ${textSize === opt.value ? 'active' : ''}`}
+                  onClick={() => handleTextSizeChange(opt.value)}
+                >
+                  <span style={{ fontSize: opt.size }}>{opt.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 

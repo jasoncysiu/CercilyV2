@@ -100,9 +100,15 @@ export function useX6Graph(options: UseX6GraphOptions) {
 
     // Drag-to-connect: highlight drop target during drag
     let highlightedNodeId: string | null = null;
+    let isDraggingNode = false;
 
     graph.on('node:moving', ({ node }) => {
       if (isSyncingRef.current) return;
+      // Add dragging class to disable CSS transitions during drag
+      if (!isDraggingNode) {
+        isDraggingNode = true;
+        container.classList.add('x6-nodes-dragging');
+      }
       // Skip highlight when multiple nodes selected
       const selectedNodes = graph.getSelectedCells().filter(c => c.isNode());
       if (selectedNodes.length > 1) return;
@@ -140,6 +146,12 @@ export function useX6Graph(options: UseX6GraphOptions) {
     // Node moved — drag-to-connect on drop + position persistence
     graph.on('node:moved', ({ node }) => {
       if (isSyncingRef.current) return;
+
+      // Remove dragging class to re-enable CSS transitions
+      if (isDraggingNode) {
+        isDraggingNode = false;
+        container.classList.remove('x6-nodes-dragging');
+      }
 
       // Clear any remaining highlight
       if (highlightedNodeId) {
@@ -362,6 +374,24 @@ export function useX6Graph(options: UseX6GraphOptions) {
 
     window.addEventListener('x6-focus-block', handleFocusBlock);
     return () => window.removeEventListener('x6-focus-block', handleFocusBlock);
+  }, []);
+
+  // Resize all nodes when text size changes
+  useEffect(() => {
+    const handleTextSizeChange = () => {
+      const graph = graphRef.current;
+      if (!graph) return;
+      for (const node of graph.getNodes()) {
+        const data = node.getData();
+        if (data?.block) {
+          const block = data.block as Block;
+          const dynamicSize = calculateNodeSize(block.text, !!block.isCollapsed);
+          node.setSize(dynamicSize.width, dynamicSize.height);
+        }
+      }
+    };
+    window.addEventListener('cercily-text-size-change', handleTextSizeChange);
+    return () => window.removeEventListener('cercily-text-size-change', handleTextSizeChange);
   }, []);
 
   // Sync blocks and connections from React state to X6 graph

@@ -7,6 +7,7 @@ import {
   blockToX6Node,
   connectionToX6Edge,
   connectionEdgeId,
+  calculateNodeSize,
   portGroups,
   defaultPorts,
 } from '@/lib/x6-helpers';
@@ -55,7 +56,7 @@ export function useX6Graph(options: UseX6GraphOptions) {
       grid: { visible: false },
       panning: {
         enabled: true,
-        eventTypes: ['leftMouseDown', 'rightMouseDown'],
+        eventTypes: ['leftMouseDown'],
       },
       mousewheel: {
         enabled: true,
@@ -399,8 +400,9 @@ export function useX6Graph(options: UseX6GraphOptions) {
           if (node) {
             const pos = node.getPosition();
             const size = node.getSize();
-            const targetW = block.width || (block.isCollapsed ? 160 : 260);
-            const targetH = block.height || (block.isCollapsed ? 50 : 100);
+            const dynamicSize = calculateNodeSize(block.text, !!block.isCollapsed);
+            const targetW = block.width || dynamicSize.width;
+            const targetH = block.height || dynamicSize.height;
 
             if (pos.x !== block.x || pos.y !== block.y) {
               node.setPosition(block.x, block.y);
@@ -408,8 +410,6 @@ export function useX6Graph(options: UseX6GraphOptions) {
             if (size.width !== targetW || size.height !== targetH) {
               node.setSize(targetW, targetH);
             }
-            // Update data WITHOUT silent so the React shape re-renders
-            // (effect: ['data'] in the shape registration listens for change events)
             node.setData({ block, hasChildren }, { overwrite: true });
           }
         } else {
@@ -428,7 +428,7 @@ export function useX6Graph(options: UseX6GraphOptions) {
       );
       const targetEdgeIds = new Set(visibleConnections.map(c => connectionEdgeId(c)));
 
-      // Remove edges that are gone (don't use { silent: true } — it can leave ghost SVG)
+      // Remove edges that are gone
       for (const edge of currentEdges) {
         if (!targetEdgeIds.has(edge.id)) {
           try { edge.remove(); } catch (_) {}
@@ -440,7 +440,6 @@ export function useX6Graph(options: UseX6GraphOptions) {
         const edgeId = connectionEdgeId(conn);
         const existing = currentEdgeMap.get(edgeId);
         if (existing) {
-          // Update color/attrs if they changed
           const targetStroke = connectionToX6Edge(conn).attrs.line.stroke;
           const currentStroke = existing.attr('line/stroke');
           if (currentStroke !== targetStroke) {

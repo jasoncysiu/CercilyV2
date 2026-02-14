@@ -7,12 +7,16 @@ interface ResizeHandleProps {
   onResize: (newLeftWidth: number) => void;
   minLeftWidth?: number;
   minRightWidth?: number;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
 export default function ResizeHandle({
   onResize,
   minLeftWidth = 300,
   minRightWidth = 300,
+  onDragStart,
+  onDragEnd,
 }: ResizeHandleProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -26,7 +30,8 @@ export default function ResizeHandle({
     const handleMouseUp = () => {
       setIsDragging(false);
       document.body.style.cursor = 'default';
-      document.body.style.userSelect = 'auto'; 
+      document.body.style.userSelect = 'auto';
+      onDragEnd?.();
     };
 
     if (isDragging) {
@@ -45,6 +50,7 @@ export default function ResizeHandle({
     setIsDragging(true);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
+    onDragStart?.();
   };
 
   return (

@@ -336,6 +336,7 @@ export default function Home() {
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [highlightColor, setHighlightColor] = useState<BlockColor>('blue');
   const [chatPaneWidth, setChatPaneWidth] = useState(50); // Percentage width
+  const [isResizing, setIsResizing] = useState(false);
   
   // Model selection states
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -349,6 +350,15 @@ export default function Home() {
 
   // Toggle for including project context in chat
   const [includeContext, setIncludeContext] = useState(true);
+
+  // Custom decision prompt
+  const [customDecisionPrompt, setCustomDecisionPrompt] = useState('');
+
+  // Load custom decision prompt from localStorage on mount
+  useEffect(() => {
+    const savedPrompt = localStorage.getItem('cercily-decision-prompt');
+    if (savedPrompt) setCustomDecisionPrompt(savedPrompt);
+  }, []);
 
   // Decision mode state
   const [isDecisionMode, setIsDecisionMode] = useState(false);
@@ -487,8 +497,8 @@ export default function Home() {
     if (posX === undefined || posY === undefined) {
       // Gather all visible blocks across the project to avoid overlaps
       const allBlocks = projectChatIds.flatMap(cid => chatsData[cid]?.blocks || []).filter(b => !b.isHidden);
-      const blockW = 260;
-      const blockH = 100;
+      const blockW = 220;
+      const blockH = 80;
       const gap = 40;
 
       if (allBlocks.length === 0) {
@@ -525,6 +535,40 @@ export default function Home() {
     updateCurrentChatData({ blocks: [...blocks, newBlock] });
     showToast('Added to canvas!');
   }, [blocks, showToast, updateCurrentChatData, currentChatId, pushSnapshot, projectChatIds, chatsData]);
+
+  // Add a child branch: creates a new block + connection in one operation
+  const addBranch = useCallback((parentId: string) => {
+    const parentBlock = displayedBlocks.find(b => b.id === parentId);
+    if (!parentBlock) return;
+    pushSnapshot();
+
+    const childId = `block-${++blockIdRef.current}`;
+    const childX = (parentBlock.x || 0) + (parentBlock.width || 220) + 60;
+    const childY = parentBlock.y || 0;
+
+    const newBlock: Block = {
+      id: childId,
+      text: '',
+      color: parentBlock.color,
+      x: childX,
+      y: childY,
+      chatId: currentChatId,
+      isEditing: true,
+    };
+
+    const newConnection: Connection = {
+      from: parentId,
+      fromPos: 'right',
+      to: childId,
+      toPos: 'left',
+      color: parentBlock.color,
+    };
+
+    updateCurrentChatData({
+      blocks: [...blocks, newBlock],
+      connections: [...connections, newConnection],
+    });
+  }, [displayedBlocks, blocks, connections, currentChatId, pushSnapshot, updateCurrentChatData]);
 
   const addHighlight = useCallback((
     messageId: string,
@@ -637,31 +681,52 @@ export default function Home() {
 
   const deleteBlock = useCallback((id: string) => {
     if (!skipSnapshotRef.current) pushSnapshot();
-    // Find which chat this block belongs to and delete it + its linked highlight
+
+    // Collect all descendants to cascade-delete the entire branch
+    const pChatIds = projects[currentProjectId]?.chatIds || [];
     setChatsData(prev => {
+      // Gather all connections across project chats
+      const allConnections: Connection[] = [];
+      pChatIds.forEach(cid => {
+        const chat = prev[cid];
+        if (chat) allConnections.push(...chat.connections);
+      });
+
+      // BFS to find all descendant IDs
+      const toDelete = new Set<string>([id]);
+      const queue = [id];
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        allConnections.forEach(c => {
+          if (c.from === current && !toDelete.has(c.to)) {
+            toDelete.add(c.to);
+            queue.push(c.to);
+          }
+        });
+      }
+
       const updated: Record<string, ChatData> = {};
       Object.entries(prev).forEach(([chatId, chat]) => {
-        // Find the block being deleted to get its highlight linkage
-        const blockToDelete = chat.blocks.find(b => b.id === id);
-        let filteredHighlights = chat.highlights;
-        if (blockToDelete?.messageId && blockToDelete.startOffset !== undefined && blockToDelete.endOffset !== undefined) {
-          filteredHighlights = chat.highlights.filter(h =>
-            !(h.messageId === blockToDelete.messageId &&
-              h.startOffset === blockToDelete.startOffset &&
-              h.endOffset === blockToDelete.endOffset)
-          );
-        }
+        // Collect highlight linkage keys for all blocks being deleted
+        const deletedLinkKeys = new Set<string>();
+        chat.blocks.forEach(b => {
+          if (toDelete.has(b.id) && b.messageId && b.startOffset !== undefined && b.endOffset !== undefined) {
+            deletedLinkKeys.add(`${b.messageId}:${b.startOffset}:${b.endOffset}`);
+          }
+        });
         updated[chatId] = {
           ...chat,
-          blocks: chat.blocks.filter(b => b.id !== id),
-          connections: chat.connections.filter(c => c.from !== id && c.to !== id),
-          highlights: filteredHighlights,
+          blocks: chat.blocks.filter(b => !toDelete.has(b.id)),
+          connections: chat.connections.filter(c => !toDelete.has(c.from) && !toDelete.has(c.to)),
+          highlights: deletedLinkKeys.size > 0
+            ? chat.highlights.filter(h => !deletedLinkKeys.has(`${h.messageId}:${h.startOffset}:${h.endOffset}`))
+            : chat.highlights,
         };
       });
       return updated;
     });
-    showToast('Block deleted');
-  }, [showToast, pushSnapshot]);
+    showToast('Branch deleted');
+  }, [showToast, pushSnapshot, currentProjectId, projects]);
 
   const deleteBlocks = useCallback((ids: string[]) => {
     pushSnapshot();
@@ -2115,7 +2180,7 @@ Confidence: ${decisionData.confidence}/10`;
         onOpenSettings={() => setShowSettingsPanel(true)}
       />
       <div className="main-content">
-        {sidebarVisible && (
+        <div className={`sidebar-wrapper ${sidebarVisible ? 'open' : 'closed'}`}>
           <LeftSidebar
             projects={projectItems}
             currentChatId={currentChatId}
@@ -2137,8 +2202,8 @@ Confidence: ${decisionData.confidence}/10`;
               return reviewDate <= new Date();
             }).length}
           />
-        )}
-        <div className="panes-container">
+        </div>
+        <div className={`panes-container ${isResizing ? 'is-resizing' : ''}`}>
           <div className="chat-pane" style={{ width: `calc(${chatPaneWidth}% - 4px)` }}>
             {isDecisionMode ? (
               <DecisionFlow
@@ -2146,6 +2211,7 @@ Confidence: ${decisionData.confidence}/10`;
                 onCancel={handleCancelDecision}
                 onCreateNode={handleCreateNodeFromDecision}
                 modelName={activeChatModel}
+                customPrompt={customDecisionPrompt}
               />
             ) : (
               <ChatView
@@ -2174,6 +2240,8 @@ Confidence: ${decisionData.confidence}/10`;
             }}
             minLeftWidth={250}
             minRightWidth={250}
+            onDragStart={() => setIsResizing(true)}
+            onDragEnd={() => setIsResizing(false)}
           />
           <div className="canvas-pane" style={{ width: `calc(${100 - chatPaneWidth}% - 4px)` }}>
             <CanvasPanel
@@ -2210,6 +2278,7 @@ Confidence: ${decisionData.confidence}/10`;
               canUndo={canUndo}
               canRedo={canRedo}
               onPushSnapshot={pushSnapshot}
+              onAddBranch={addBranch}
             />
           </div>
         </div>
@@ -2238,6 +2307,7 @@ Confidence: ${decisionData.confidence}/10`;
         onClose={() => setShowSettingsPanel(false)}
         availableModels={availableModels}
         onSelectAvailableModels={setAvailableModels}
+        onCustomPromptChange={setCustomDecisionPrompt}
       />
       <ProjectContextModal
         isOpen={contextModalOpen}

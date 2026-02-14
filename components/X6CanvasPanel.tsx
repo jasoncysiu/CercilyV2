@@ -21,6 +21,12 @@ import {
   Redo2,
   Rows3,
   Columns3,
+  GitBranchPlus,
+  AlignLeft,
+  Waypoints,
+  Pencil,
+  X,
+  ChevronsUpDown,
 } from 'lucide-react';
 
 // Register the React shape for our blocks
@@ -88,6 +94,7 @@ interface CanvasPanelProps {
   canUndo?: boolean;
   canRedo?: boolean;
   onPushSnapshot?: () => void;
+  onAddBranch?: (parentId: string) => void;
 }
 
 export default function X6CanvasPanel({
@@ -123,6 +130,7 @@ export default function X6CanvasPanel({
   canUndo,
   canRedo,
   onPushSnapshot,
+  onAddBranch,
 }: CanvasPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -208,18 +216,25 @@ export default function X6CanvasPanel({
       onToggleCollapse?.(blockId);
     };
 
+    const handleAddBranch = (e: Event) => {
+      const { parentId } = (e as CustomEvent).detail;
+      onAddBranch?.(parentId);
+    };
+
     window.addEventListener('x6-block-edit', handleBlockEdit);
     window.addEventListener('x6-block-navigate', handleBlockNavigate);
     window.addEventListener('x6-toggle-connected', handleToggleConnected);
     window.addEventListener('x6-toggle-collapse', handleToggleCollapse);
+    window.addEventListener('x6-add-branch', handleAddBranch);
 
     return () => {
       window.removeEventListener('x6-block-edit', handleBlockEdit);
       window.removeEventListener('x6-block-navigate', handleBlockNavigate);
       window.removeEventListener('x6-toggle-connected', handleToggleConnected);
       window.removeEventListener('x6-toggle-collapse', handleToggleCollapse);
+      window.removeEventListener('x6-add-branch', handleAddBranch);
     };
-  }, [blocks, connections, onUpdateBlock, onDeleteBlock, onBlockClick, onPushSnapshot, onToggleCollapse]);
+  }, [blocks, connections, onUpdateBlock, onDeleteBlock, onBlockClick, onPushSnapshot, onToggleCollapse, onAddBranch]);
 
   // Get all descendants of a block from a specific connection position
   const getAllDescendants = useCallback((startBlockId: string, startPos: ConnectionPosition): string[] => {
@@ -273,27 +288,45 @@ export default function X6CanvasPanel({
     const graph = getGraph();
     if (!graph) return;
 
-    // Check if right-clicked on a node
+    // Check if right-clicked on a node by walking up to find foreignObject → g[data-cell-id]
     const target = e.target as HTMLElement;
+    // Try HTML data-cell-id first (won't cross SVG boundary from inside foreignObject)
+    let cellId: string | null = null;
     const nodeEl = target.closest('[data-cell-id]');
-
     if (nodeEl) {
-      const cellId = nodeEl.getAttribute('data-cell-id');
-      if (cellId) {
-        setBlockContextMenu({
-          x: e.clientX,
-          y: e.clientY - 60,
-          blockId: cellId,
-        });
-        return;
+      cellId = nodeEl.getAttribute('data-cell-id');
+    }
+
+    // If not found, check if we're inside a foreignObject (React node inside X6)
+    if (!cellId) {
+      let el: Element | null = target;
+      while (el && el !== document.documentElement) {
+        if (el.tagName === 'foreignObject') {
+          // Found the foreignObject — get the parent g[data-cell-id]
+          const gEl = el.closest('g[data-cell-id]') || el.parentElement?.closest('g[data-cell-id]');
+          if (gEl) {
+            cellId = gEl.getAttribute('data-cell-id');
+          }
+          break;
+        }
+        el = el.parentElement;
       }
+    }
+
+    if (cellId) {
+      setBlockContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        blockId: cellId,
+      });
+      return;
     }
 
     // Right-clicked on empty canvas — always show context menu
     const pos = screenToGraphPosition(e.clientX, e.clientY);
     setContextMenu({
       x: e.clientX,
-      y: e.clientY - 60,
+      y: e.clientY,
       modelX: pos.x - 130, // Center the block
       modelY: pos.y - 20,
     });
@@ -366,10 +399,32 @@ export default function X6CanvasPanel({
       onSelectBlock(null);
     };
 
+    // Handle right-click on nodes via X6's own event system
+    // This is more reliable than DOM traversal because X6 handles
+    // foreignObject event routing internally
+    const handleNodeContextMenu = ({ node, e: evt }: any) => {
+      // X6 wraps events — extract the native mouse event
+      const nativeEvt = evt?.originalEvent ?? evt;
+      if (nativeEvt?.preventDefault) nativeEvt.preventDefault();
+      if (nativeEvt?.stopPropagation) nativeEvt.stopPropagation();
+      x6HandledClickRef.current = true;
+      setContextMenu(null);
+
+      const clientX = nativeEvt?.clientX ?? evt?.clientX ?? 0;
+      const clientY = nativeEvt?.clientY ?? evt?.clientY ?? 0;
+
+      setBlockContextMenu({
+        x: clientX,
+        y: clientY,
+        blockId: node.id,
+      });
+    };
+
     graph.on('edge:click', handleEdgeClick);
     graph.on('edge:contextmenu', handleEdgeContextMenu);
     graph.on('node:click', handleNodeClick);
     graph.on('node:dblclick', handleNodeDblClick);
+    graph.on('node:contextmenu', handleNodeContextMenu);
     graph.on('blank:click', handleBlankClick);
 
     return () => {
@@ -377,6 +432,7 @@ export default function X6CanvasPanel({
       graph.off('edge:contextmenu', handleEdgeContextMenu);
       graph.off('node:click', handleNodeClick);
       graph.off('node:dblclick', handleNodeDblClick);
+      graph.off('node:contextmenu', handleNodeContextMenu);
       graph.off('blank:click', handleBlankClick);
     };
   }, [getGraph, onDeleteConnection, onSelectBlock, onUpdateBlock, currentTool, screenToGraphPosition, contextMenu, blockContextMenu]);
@@ -680,55 +736,124 @@ export default function X6CanvasPanel({
         </div>
       )}
 
-      {/* Block context menu */}
-      {blockContextMenu && (
-        <div
-          className="canva-context-menu"
-          style={{
-            left: blockContextMenu.x,
-            top: blockContextMenu.y,
-            position: 'fixed',
-            transform: 'translateX(-50%)',
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <button
-            className="context-menu-btn"
-            onClick={() => {
-              const block = blocks.find(b => b.id === blockContextMenu.blockId);
-              if (block) {
-                if (onToggleCollapse) onToggleCollapse(block.id);
-                else onUpdateBlock(block.id, { isCollapsed: !block.isCollapsed });
-              }
-              setBlockContextMenu(null);
+      {/* Block context menu — vertical MMW style */}
+      {blockContextMenu && (() => {
+        const ctxBlock = blocks.find(b => b.id === blockContextMenu.blockId);
+        const blockHasChildren = connections.some(c => c.from === blockContextMenu.blockId);
+        const colorOptions: BlockColor[] = ['orange', 'cyan', 'pink', 'purple', 'green', 'gold', 'blue', 'teal'];
+
+        // Keep menu within viewport bounds
+        const menuW = 200;
+        const menuH = blockHasChildren ? 340 : 300;
+        let menuX = blockContextMenu.x;
+        let menuY = blockContextMenu.y;
+        if (menuX + menuW / 2 > window.innerWidth) menuX = window.innerWidth - menuW / 2 - 8;
+        if (menuX - menuW / 2 < 0) menuX = menuW / 2 + 8;
+        if (menuY + menuH > window.innerHeight) menuY = window.innerHeight - menuH - 8;
+        if (menuY < 8) menuY = 8;
+
+        return (
+          <div
+            className="block-context-menu"
+            style={{
+              left: menuX,
+              top: menuY,
+              position: 'fixed',
             }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
-            {blocks.find(b => b.id === blockContextMenu.blockId)?.isCollapsed ? 'Expand' : 'Collapse'}
-          </button>
-          <div className="context-menu-divider" />
-          <button
-            className="context-menu-btn"
-            onClick={() => {
-              onUpdateBlock(blockContextMenu.blockId, { isEditing: true });
-              setBlockContextMenu(null);
-            }}
-          >
-            Edit
-          </button>
-          <div className="context-menu-divider" />
-          <button
-            className="context-menu-btn delete"
-            onClick={() => {
-              onDeleteBlock(blockContextMenu.blockId);
-              setBlockContextMenu(null);
-            }}
-            style={{ color: '#ff453a' }}
-          >
-            Delete
-          </button>
-        </div>
-      )}
+            {/* Color picker dots */}
+            <div className="bcm-colors">
+              {colorOptions.map(c => (
+                <button
+                  key={c}
+                  className={`bcm-color-dot ${c} ${ctxBlock?.color === c ? 'active' : ''}`}
+                  onClick={() => {
+                    onUpdateBlock(blockContextMenu.blockId, { color: c });
+                    setBlockContextMenu(null);
+                  }}
+                />
+              ))}
+            </div>
+
+            <div className="bcm-divider" />
+
+            {/* Add Branch */}
+            <button
+              className="bcm-item"
+              onClick={() => {
+                onAddBranch?.(blockContextMenu.blockId);
+                setBlockContextMenu(null);
+              }}
+            >
+              <GitBranchPlus size={15} strokeWidth={1.5} /> Add Branch
+            </button>
+
+            {/* Add Notes */}
+            <button
+              className="bcm-item"
+              onClick={() => {
+                onUpdateBlock(blockContextMenu.blockId, { isEditing: true });
+                setBlockContextMenu(null);
+              }}
+            >
+              <AlignLeft size={15} strokeWidth={1.5} /> Add Notes
+            </button>
+
+            {/* AI Expand */}
+            <button
+              className="bcm-item"
+              onClick={() => {
+                onSynthesizeDecision?.();
+                setBlockContextMenu(null);
+              }}
+            >
+              <Waypoints size={15} strokeWidth={1.5} /> AI Expand
+            </button>
+
+            {/* Edit Node */}
+            <button
+              className="bcm-item"
+              onClick={() => {
+                onUpdateBlock(blockContextMenu.blockId, { isEditing: true });
+                setBlockContextMenu(null);
+              }}
+            >
+              <Pencil size={15} strokeWidth={1.5} /> Edit Node
+            </button>
+
+            {/* Collapse / Expand Children */}
+            {blockHasChildren && (
+              <button
+                className="bcm-item"
+                onClick={() => {
+                  onToggleCollapse?.(blockContextMenu.blockId);
+                  setBlockContextMenu(null);
+                }}
+              >
+                {ctxBlock?.isCollapsed
+                  ? <><ChevronsUpDown size={15} strokeWidth={1.5} /> Expand Children</>
+                  : <><X size={15} strokeWidth={1.5} /> Collapse Children</>
+                }
+              </button>
+            )}
+
+            <div className="bcm-divider" />
+
+            {/* Delete Node */}
+            <button
+              className="bcm-item delete"
+              onClick={() => {
+                onDeleteBlock(blockContextMenu.blockId);
+                setBlockContextMenu(null);
+              }}
+            >
+              <Trash2 size={15} strokeWidth={1.5} /> Delete Node
+            </button>
+          </div>
+        );
+      })()}
 
       <div className="canvas-footer">
         <div className="zoom-controls">

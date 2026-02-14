@@ -1,23 +1,37 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Monitor, Sun, Moon, Key, Eye, EyeOff, Check } from 'lucide-react';
+import { X, Monitor, Sun, Moon, Key, Eye, EyeOff, Check, Sparkles, RotateCcw } from 'lucide-react';
 import ModelSelector from './ModelSelector';
 
 type Theme = 'system' | 'light' | 'dark';
+
+const DEFAULT_DECISION_PROMPT = `You are a decision-making coach. Analyze this person's thinking using the Fear Setting framework and provide a clear, actionable synthesis.
+
+Provide a synthesis that:
+1. Identifies key patterns or contradictions in their thinking
+2. Points out risks they might have missed
+3. Highlights their strongest points
+4. Challenges any weak assumptions
+5. Gives a clear recommendation
+
+Keep it concise (3-4 paragraphs max). Be direct and honest.`;
 
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   availableModels: string[];
   onSelectAvailableModels: (models: string[]) => void;
+  onCustomPromptChange?: (prompt: string) => void;
 }
 
-export default function SettingsPanel({ isOpen, onClose, availableModels, onSelectAvailableModels }: SettingsPanelProps) {
+export default function SettingsPanel({ isOpen, onClose, availableModels, onSelectAvailableModels, onCustomPromptChange }: SettingsPanelProps) {
   const [theme, setTheme] = useState<Theme>('system');
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiKeySaved, setApiKeySaved] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [promptSaved, setPromptSaved] = useState(false);
 
   // Load theme from localStorage on mount
   useEffect(() => {
@@ -37,6 +51,14 @@ export default function SettingsPanel({ isOpen, onClose, availableModels, onSele
     }
   }, []);
 
+  // Load custom prompt from localStorage on mount
+  useEffect(() => {
+    const savedPrompt = localStorage.getItem('cercily-decision-prompt');
+    if (savedPrompt) {
+      setCustomPrompt(savedPrompt);
+    }
+  }, []);
+
   const handleSaveApiKey = () => {
     if (geminiApiKey.trim()) {
       localStorage.setItem('cercily-gemini-api-key', geminiApiKey.trim());
@@ -49,6 +71,25 @@ export default function SettingsPanel({ isOpen, onClose, availableModels, onSele
     localStorage.removeItem('cercily-gemini-api-key');
     setGeminiApiKey('');
     setApiKeySaved(false);
+  };
+
+  const handleSavePrompt = () => {
+    const trimmed = customPrompt.trim();
+    if (trimmed) {
+      localStorage.setItem('cercily-decision-prompt', trimmed);
+    } else {
+      localStorage.removeItem('cercily-decision-prompt');
+    }
+    onCustomPromptChange?.(trimmed);
+    setPromptSaved(true);
+    setTimeout(() => setPromptSaved(false), 2000);
+  };
+
+  const handleResetPrompt = () => {
+    setCustomPrompt('');
+    localStorage.removeItem('cercily-decision-prompt');
+    onCustomPromptChange?.('');
+    setPromptSaved(false);
   };
 
   const applyTheme = (newTheme: Theme) => {
@@ -177,6 +218,42 @@ export default function SettingsPanel({ isOpen, onClose, availableModels, onSele
               initialAvailableModels={availableModels}
               onSelectAvailableModels={onSelectAvailableModels}
             />
+          </div>
+
+          <div className="settings-divider" />
+
+          {/* Custom Decision Prompt */}
+          <div className="settings-section">
+            <label className="settings-label">
+              <Sparkles size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+              Decision Prompt
+            </label>
+            <p className="settings-hint">
+              Customize how the AI analyzes your decisions. Leave blank to use the default Fear Setting framework.
+            </p>
+            <textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              placeholder={DEFAULT_DECISION_PROMPT}
+              className="settings-prompt-textarea"
+              rows={6}
+            />
+            <div className="settings-prompt-actions">
+              <button
+                className="settings-prompt-reset"
+                onClick={handleResetPrompt}
+                title="Reset to default"
+              >
+                <RotateCcw size={14} />
+                <span>Reset</span>
+              </button>
+              <button
+                className={`api-key-save ${promptSaved ? 'saved' : ''}`}
+                onClick={handleSavePrompt}
+              >
+                {promptSaved ? <Check size={16} /> : 'Save'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

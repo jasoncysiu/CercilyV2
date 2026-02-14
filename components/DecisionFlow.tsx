@@ -9,11 +9,25 @@ interface DecisionFlowProps {
   onCancel: () => void;
   onCreateNode: (content: string, color: BlockColor, stepKey: string) => void;
   modelName: string;
+  customPrompt?: string;
 }
 
+const DEFAULT_SYNTHESIS_PROMPT = `You are a decision-making coach. Analyze this person's thinking using the Fear Setting framework and provide a clear, actionable synthesis.
+
+Provide a synthesis that:
+1. Identifies key patterns or contradictions in their thinking
+2. Points out risks they might have missed
+3. Highlights their strongest points
+4. Challenges any weak assumptions
+5. Gives a clear recommendation
+
+Keep it concise (3-4 paragraphs max). Be direct and honest.`;
+
 // AI synthesis function
-async function getAISynthesis(responses: Record<string, string>, modelName: string): Promise<string> {
-  const prompt = `You are a decision-making coach. Analyze this person's thinking using the Fear Setting framework and provide a clear, actionable synthesis.
+async function getAISynthesis(responses: Record<string, string>, modelName: string, apiKey: string | null, customPrompt?: string): Promise<string> {
+  const instructions = customPrompt?.trim() || DEFAULT_SYNTHESIS_PROMPT;
+
+  const prompt = `${instructions}
 
 Decision: ${responses['question']}
 
@@ -25,16 +39,7 @@ Prevention/Mitigation: ${responses['prevention']}
 
 Best Case: ${responses['best-case']}
 
-Cost of Inaction: ${responses['inaction']}
-
-Provide a synthesis that:
-1. Identifies key patterns or contradictions in their thinking
-2. Points out risks they might have missed
-3. Highlights their strongest points
-4. Challenges any weak assumptions
-5. Gives a clear recommendation
-
-Keep it concise (3-4 paragraphs max). Be direct and honest.`;
+Cost of Inaction: ${responses['inaction']}`;
 
   const response = await fetch('/api/chat', {
     method: 'POST',
@@ -42,11 +47,13 @@ Keep it concise (3-4 paragraphs max). Be direct and honest.`;
     body: JSON.stringify({
       messages: [{ role: 'user', content: prompt }],
       modelName,
+      apiKey,
     }),
   });
 
   if (!response.ok) {
-    throw new Error('Failed to get AI synthesis');
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to get AI synthesis');
   }
 
   const data = await response.json();
@@ -106,7 +113,7 @@ const STEPS: Step[] = [
   },
 ];
 
-async function getBrainstormSuggestions(decisionQuestion: string, modelName: string): Promise<string[]> {
+async function getBrainstormSuggestions(decisionQuestion: string, modelName: string, apiKey: string | null): Promise<string[]> {
   const prompt = `Given this decision: "${decisionQuestion}"
 
 Generate exactly 4 short guiding questions (one sentence each) that would help someone articulate the context and situation around this decision. Focus on:
@@ -123,6 +130,7 @@ Return ONLY the 4 questions, one per line, no numbering or bullets.`;
     body: JSON.stringify({
       messages: [{ role: 'user', content: prompt }],
       modelName,
+      apiKey,
     }),
   });
 
@@ -135,7 +143,7 @@ Return ONLY the 4 questions, one per line, no numbering or bullets.`;
   return text.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
 }
 
-export default function DecisionFlow({ onComplete, onCancel, onCreateNode, modelName }: DecisionFlowProps) {
+export default function DecisionFlow({ onComplete, onCancel, onCreateNode, modelName, customPrompt }: DecisionFlowProps) {
   const [step, setStep] = useState(0);
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [currentInput, setCurrentInput] = useState('');
@@ -144,6 +152,8 @@ export default function DecisionFlow({ onComplete, onCancel, onCreateNode, model
   const [brainstormSuggestions, setBrainstormSuggestions] = useState<string[]>([]);
   const [isBrainstorming, setIsBrainstorming] = useState(false);
   const [showBrainstorm, setShowBrainstorm] = useState(false);
+
+  const getApiKey = () => typeof window !== 'undefined' ? localStorage.getItem('cercily-gemini-api-key') : null;
 
   const currentStep = STEPS[step];
   const isLastStep = step === STEPS.length - 1;
@@ -164,7 +174,7 @@ export default function DecisionFlow({ onComplete, onCancel, onCreateNode, model
       setIsLoadingSynthesis(true);
 
       try {
-        const synthesis = await getAISynthesis(newResponses, modelName);
+        const synthesis = await getAISynthesis(newResponses, modelName, getApiKey(), customPrompt);
         setAiSynthesis(synthesis);
       } catch (error) {
         console.error('Error getting AI synthesis:', error);
@@ -197,7 +207,7 @@ export default function DecisionFlow({ onComplete, onCancel, onCreateNode, model
     if (!question || !modelName) return;
     setIsBrainstorming(true);
     try {
-      const suggestions = await getBrainstormSuggestions(question, modelName);
+      const suggestions = await getBrainstormSuggestions(question, modelName, getApiKey());
       setBrainstormSuggestions(suggestions);
       setShowBrainstorm(true);
     } catch (error) {

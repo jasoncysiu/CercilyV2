@@ -278,12 +278,27 @@ h1 {
    LEFT SIDEBAR
    ======================================== */
 
+.sidebar-wrapper {
+  width: 240px;
+  min-width: 0;
+  overflow: hidden;
+  height: 100%;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  transition: width 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-wrapper.closed {
+  width: 0;
+  border-right: none;
+}
+
 .left-sidebar {
   width: 240px;
+  height: 100%;
   background: var(--bg-secondary);
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border-primary);
 }
 
 .sidebar-header {
@@ -1109,6 +1124,12 @@ h1 {
   flex-direction: column;
   overflow: hidden;
   height: 100%;
+  transition: width 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.is-resizing .chat-pane,
+.is-resizing .canvas-pane {
+  transition: none;
 }
 
 .canvas-pane {
@@ -1116,6 +1137,7 @@ h1 {
   flex-direction: column;
   overflow: hidden;
   height: 100%;
+  transition: width 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ========================================
@@ -2353,6 +2375,12 @@ mark {
   align-items: center;
   position: absolute;
   pointer-events: auto;
+  animation: canvas-ctx-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes canvas-ctx-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .context-menu-btn {
@@ -2393,6 +2421,103 @@ mark {
   border-width: 8px;
   border-style: solid;
   border-color: var(--bg-elevated) transparent transparent transparent;
+}
+
+/* ========================================
+   BLOCK CONTEXT MENU (Vertical MMW-style)
+   ======================================== */
+
+.block-context-menu {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  padding: 8px 4px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.25);
+  z-index: 3000;
+  min-width: 180px;
+  pointer-events: auto;
+  transform: translateX(-50%);
+  animation: context-menu-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes context-menu-in {
+  from { opacity: 0; transform: translateX(-50%) scale(0.95); }
+  to { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+.bcm-colors {
+  display: flex;
+  gap: 6px;
+  padding: 4px 12px 6px;
+  justify-content: center;
+}
+
+.bcm-color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+  padding: 0;
+}
+
+.bcm-color-dot:hover {
+  transform: scale(1.18);
+}
+
+.bcm-color-dot.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.3);
+}
+
+.bcm-color-dot.orange   { background: #FF7F0F; }
+.bcm-color-dot.cyan     { background: #00BFBF; }
+.bcm-color-dot.pink     { background: #FF4081; }
+.bcm-color-dot.purple   { background: #CE5BFF; }
+.bcm-color-dot.green    { background: #32CD35; }
+.bcm-color-dot.gold     { background: #FFBF00; }
+.bcm-color-dot.blue     { background: #03A9F4; }
+.bcm-color-dot.teal     { background: #00B7A5; }
+
+.bcm-divider {
+  height: 1px;
+  background: var(--border-primary);
+  margin: 4px 10px;
+}
+
+.bcm-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+  width: 100%;
+  text-align: left;
+}
+
+.bcm-item:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.bcm-item.delete {
+  color: #ff453a;
+}
+
+.bcm-item.delete:hover {
+  background: rgba(255, 69, 58, 0.1);
+  color: #ff453a;
 }
 
 /* ========================================
@@ -2574,6 +2699,12 @@ mark {
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   z-index: 9998;
+  animation: settings-overlay-in 0.3s ease-out;
+}
+
+@keyframes settings-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .settings-panel {
@@ -2589,6 +2720,12 @@ mark {
   z-index: 9999;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+  animation: settings-panel-in 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes settings-panel-in {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
 .settings-header {
@@ -2810,6 +2947,56 @@ mark {
 
 .api-key-hint a:hover {
   text-decoration: underline;
+}
+
+/* Custom Prompt */
+.settings-prompt-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.15s ease;
+}
+
+.settings-prompt-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.settings-prompt-textarea::placeholder {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.settings-prompt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.settings-prompt-reset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.15s ease;
+}
+
+.settings-prompt-reset:hover {
+  color: var(--text-secondary);
 }
 
 /* Project Context Modal */
@@ -3268,6 +3455,15 @@ mark {
   left: 0;
 }
 
+/* Allow collapse indicator and add-branch button to overflow outside node bounds */
+.x6-node foreignObject {
+  overflow: visible;
+}
+.x6-node foreignObject > body,
+.x6-node foreignObject > body > div {
+  overflow: visible !important;
+}
+
 /* X6 minimap */
 .x6-minimap {
   position: absolute;
@@ -3350,15 +3546,40 @@ mark {
   opacity: 0.6;
 }
 
-/* MMW-style collapse button is styled inline — no CSS needed for .x6-collapse-btn */
-.x6-collapse-btn {
-  /* Overrides handled via inline styles in component */
-  transition: opacity 0.15s, transform 0.15s;
+/* Fade-in animation for block content on collapse/expand */
+.block-fade-in {
+  animation: block-fade-in 0.35s ease-out;
 }
 
-.x6-collapse-btn:hover {
+@keyframes block-fade-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* MMW-style expand chevron with dashed line */
+.x6-expand-chevron {
+  transition: opacity 0.22s, transform 0.22s;
+}
+
+.x6-expand-chevron:hover {
   opacity: 0.85;
-  transform: scale(1.1);
+  transform: scale(1.15);
+}
+
+/* Hover "+" add-branch button — hidden by default, shown on node hover */
+.x6-add-branch-btn {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.x6-block-outer:hover .x6-add-branch-btn {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.x6-add-branch-btn:hover {
+  transform: translateY(-50%) scale(1.15) !important;
 }
 
 /* X6 selection — accent ring with pill radius */
@@ -3374,11 +3595,11 @@ mark {
   background: var(--accent-muted) !important;
 }
 
-/* X6 edge hover — thicker on hover, round caps */
+/* X6 edge hover — thicker on hover, round caps, animated opacity */
 .x6-edge path {
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: stroke-width 0.15s ease;
+  transition: stroke-width 0.15s ease, opacity 0.25s ease;
 }
 
 .x6-edge:hover path {

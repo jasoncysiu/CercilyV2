@@ -1115,7 +1115,7 @@ export default function Home() {
           const chat = updated[cid];
           const blocksWithNewPos = chat.blocks.map(b => {
             const pos = newPositions.get(b.id);
-            return pos ? { ...b, x: pos.x, y: pos.y } : b;
+            return pos ? { ...b, x: pos.x, y: pos.y, width: undefined, height: undefined } : b;
           });
 
           const blockMap = new Map(blocksWithNewPos.map(b => [b.id, b]));

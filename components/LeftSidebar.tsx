@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { ProjectItem } from '@/lib/types';
-import { ChevronRight, ChevronDown, Edit, Plus, Trash2, FileText, Target, BookOpen, MessageSquare, MoreHorizontal, PanelLeftClose, Search, Settings } from 'lucide-react';
+import { ChevronRight, ChevronDown, Edit, Plus, Trash2, FileText, Target, BookOpen, MessageSquare, MoreHorizontal, PanelLeftClose, Search } from 'lucide-react';
 
 interface LeftSidebarProps {
   projects: ProjectItem[];
@@ -34,6 +34,7 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
   const [overflowMenuId, setOverflowMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const composeRef = useRef<HTMLDivElement>(null);
   const overflowRef = useRef<HTMLDivElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -70,6 +71,27 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
       renameInputRef.current.select();
     }
   }, [editingId]);
+
+  // Load display name from localStorage and listen for changes
+  useEffect(() => {
+    const load = () => {
+      setDisplayName(localStorage.getItem('cercily-display-name') || '');
+    };
+    load();
+    window.addEventListener('storage', load);
+    window.addEventListener('cercily-name-change', load);
+    return () => {
+      window.removeEventListener('storage', load);
+      window.removeEventListener('cercily-name-change', load);
+    };
+  }, []);
+
+  const getInitials = (name: string) => {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
 
   const formatRelativeTime = (iso?: string) => {
     if (!iso) return '';
@@ -324,8 +346,8 @@ export default function LeftSidebar({ projects, currentChatId, onSelectChat, onS
               </div>
             )}
           </div>
-          <button className="sidebar-header-btn" onClick={onOpenSettings} title="Settings">
-            <Settings size={18} />
+          <button className="sidebar-avatar-btn" onClick={onOpenSettings} title="Settings">
+            {getInitials(displayName)}
           </button>
         </div>
       </div>

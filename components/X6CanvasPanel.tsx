@@ -29,6 +29,7 @@ import {
   ChevronsUpDown,
   Target,
   MessageSquare,
+  Scan,
 } from 'lucide-react';
 
 // Register the React shape for our blocks
@@ -152,13 +153,44 @@ export default function X6CanvasPanel({
     blockId: string;
   } | null>(null);
 
+  // Floating toolbar drag state
+  const [toolbarPos, setToolbarPos] = useState({ x: 0, y: 0 });
+  const [toolbarDragging, setToolbarDragging] = useState(false);
+  const toolbarDragStart = useRef({ x: 0, y: 0 });
+  const toolbarInitialPos = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (!toolbarDragging) return;
+    const onMove = (e: MouseEvent) => {
+      setToolbarPos({
+        x: toolbarInitialPos.current.x + (e.clientX - toolbarDragStart.current.x),
+        y: toolbarInitialPos.current.y + (e.clientY - toolbarDragStart.current.y),
+      });
+    };
+    const onUp = () => setToolbarDragging(false);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, [toolbarDragging]);
+
+  const handleToolbarMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only initiate drag from the toolbar background, not from buttons
+    if ((e.target as HTMLElement).closest('button')) return;
+    setToolbarDragging(true);
+    toolbarDragStart.current = { x: e.clientX, y: e.clientY };
+    toolbarInitialPos.current = { x: toolbarPos.x, y: toolbarPos.y };
+  }, [toolbarPos]);
+
   // Ensure the shape is registered before graph init
   useEffect(() => {
     ensureShapeRegistered();
     setMounted(true);
   }, []);
 
-  const { getGraph, screenToGraphPosition, zoomIn: graphZoomIn, zoomOut: graphZoomOut } = useX6Graph({
+  const { getGraph, screenToGraphPosition, zoomIn: graphZoomIn, zoomOut: graphZoomOut, fitToScreen } = useX6Graph({
     containerRef,
     mounted,
     blocks,
@@ -621,8 +653,15 @@ export default function X6CanvasPanel({
     <div className="canvas-panel">
       <Portal />
 
-      {/* Floating canvas tools — bottom center */}
-      <div className="canvas-floating-tools">
+      {/* Floating canvas tools — bottom center, draggable */}
+      <div
+        className={`canvas-floating-tools ${toolbarDragging ? 'dragging' : ''}`}
+        style={{
+          transform: `translate(calc(-50% + ${toolbarPos.x}px), ${toolbarPos.y}px)`,
+          transition: toolbarDragging ? 'none' : 'transform 0.1s ease-out',
+          cursor: toolbarDragging ? 'grabbing' : 'grab',
+        }}
+        onMouseDown={handleToolbarMouseDown}>
         <button
           className="canvas-tool-btn"
           onClick={() => {
@@ -657,8 +696,15 @@ export default function X6CanvasPanel({
         <button className="canvas-tool-btn" onClick={onRedo} disabled={!canRedo} title="Redo">
           <Redo2 size={16} />
         </button>
+        <button className="canvas-tool-btn" onClick={fitToScreen} title="Fit to Screen (F)">
+          <Scan size={16} />
+        </button>
         <button className="canvas-tool-btn" onClick={onClearCanvas} title="Clear canvas">
           <Trash2 size={16} />
+        </button>
+        <div className="canvas-tool-divider" />
+        <button className="canvas-tool-btn" onClick={onExport} title="Save">
+          <Save size={16} />
         </button>
       </div>
 
@@ -848,11 +894,6 @@ export default function X6CanvasPanel({
         <div className="canvas-stats">
           {visibleBlocks.length} blocks &bull; {visibleConnections.length} connections
         </div>
-        <div className="export-btns">
-          <button className="export-btn" onClick={onExport}>
-            <Save size={16} /> Save
-          </button>
-        </div>
       </div>
 
       {showOutline && (
@@ -862,6 +903,7 @@ export default function X6CanvasPanel({
           onSelectBlock={(id) => {
             onSelectBlock(id);
           }}
+          onBlockClick={onBlockClick}
           onDeleteBlocks={(ids) => {
             if (onDeleteBlocks) onDeleteBlocks(ids);
             else ids.forEach((id) => onDeleteBlock(id));

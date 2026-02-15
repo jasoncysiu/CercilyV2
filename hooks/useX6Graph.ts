@@ -10,6 +10,7 @@ import {
   calculateNodeSize,
   portGroups,
   defaultPorts,
+  ensureConnectorRegistered,
 } from '@/lib/x6-helpers';
 
 interface UseX6GraphOptions {
@@ -49,6 +50,9 @@ export function useX6Graph(options: UseX6GraphOptions) {
     const container = options.containerRef.current;
     if (!container || graphRef.current) return;
 
+    // Register the adaptive bezier connector before creating the graph
+    ensureConnectorRegistered();
+
     const graph = new Graph({
       container,
       autoResize: true,
@@ -67,7 +71,7 @@ export function useX6Graph(options: UseX6GraphOptions) {
         factor: 1.04,
       },
       connecting: {
-        connector: { name: 'smooth' },
+        connector: { name: 'adaptive-bezier' },
         router: { name: 'normal' },
         allowBlank: false,
         allowLoop: false,
@@ -339,6 +343,12 @@ export function useX6Graph(options: UseX6GraphOptions) {
       optionsRef.current.onSelectBlock(null);
     });
 
+    graph.bindKey('f', () => {
+      if (isEditing()) return;
+      // Dispatch a custom event so the fitToScreen callback handles it
+      window.dispatchEvent(new CustomEvent('x6-fit-to-screen'));
+    });
+
     graphRef.current = graph;
 
     // Trackpad two-finger scroll → pan (without ctrl/meta, which trigger zoom)
@@ -374,6 +384,14 @@ export function useX6Graph(options: UseX6GraphOptions) {
 
     window.addEventListener('x6-focus-block', handleFocusBlock);
     return () => window.removeEventListener('x6-focus-block', handleFocusBlock);
+  }, []);
+
+  // Listen for fit-to-screen requests (triggered by keyboard shortcut F)
+  const fitToScreenRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const handler = () => fitToScreenRef.current();
+    window.addEventListener('x6-fit-to-screen', handler);
+    return () => window.removeEventListener('x6-fit-to-screen', handler);
   }, []);
 
   // Resize all nodes when text size changes
@@ -520,6 +538,67 @@ export function useX6Graph(options: UseX6GraphOptions) {
     optionsRef.current.onZoomChange?.(graph.zoom());
   }, []);
 
+  const fitToScreen = useCallback(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    const nodes = graph.getNodes();
+    if (nodes.length === 0) return;
+
+    // Capture current state
+    const startZoom = graph.zoom();
+    const startTranslate = graph.translate();
+
+    // Apply zoomToFit instantly to capture target values
+    isSyncingRef.current = true;
+    graph.zoomToFit({ padding: 60, maxScale: 1.5 });
+    const targetZoom = graph.zoom();
+    const targetTranslate = graph.translate();
+
+    // Restore original state before animating
+    // Use relative zoom: graph.zoom(factor) multiplies current zoom by (1 + factor)
+    // To set absolute zoom, we compute relative factor from current
+    graph.zoom(startZoom / targetZoom - 1);
+    graph.translate(startTranslate.tx, startTranslate.ty);
+    isSyncingRef.current = false;
+
+    // Animate over 300ms with ease-in-out
+    const duration = 300;
+    const startTime = performance.now();
+    let prevZoom = startZoom;
+
+    const step = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease in-out quad
+      const eased = progress < 0.5
+        ? 2 * progress * progress
+        : -1 + (4 - 2 * progress) * progress;
+
+      const desiredZoom = startZoom + (targetZoom - startZoom) * eased;
+      const currentTx = startTranslate.tx + (targetTranslate.tx - startTranslate.tx) * eased;
+      const currentTy = startTranslate.ty + (targetTranslate.ty - startTranslate.ty) * eased;
+
+      isSyncingRef.current = true;
+      // Apply relative zoom change from previous frame's zoom
+      const relFactor = desiredZoom / prevZoom - 1;
+      graph.zoom(relFactor);
+      prevZoom = graph.zoom();
+      graph.translate(currentTx, currentTy);
+      isSyncingRef.current = false;
+
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        optionsRef.current.onZoomChange?.(graph.zoom());
+      }
+    };
+
+    requestAnimationFrame(step);
+  }, []);
+
+  // Keep the ref in sync so the keyboard shortcut event listener can call it
+  fitToScreenRef.current = fitToScreen;
+
   const getGraph = useCallback(() => graphRef.current, []);
 
   return {
@@ -528,5 +607,6 @@ export function useX6Graph(options: UseX6GraphOptions) {
     screenToGraphPosition,
     zoomIn,
     zoomOut,
+    fitToScreen,
   };
 }

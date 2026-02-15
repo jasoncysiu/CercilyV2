@@ -345,6 +345,29 @@ h1 {
   background: var(--bg-tertiary);
 }
 
+.sidebar-avatar-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-muted, rgba(99, 102, 241, 0.12));
+  color: var(--accent, #6366f1);
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sidebar-avatar-btn:hover {
+  background: var(--accent, #6366f1);
+  color: #fff;
+}
+
 .sidebar-compose-wrapper {
   position: relative;
 }
@@ -1384,21 +1407,34 @@ h1 {
   color: var(--text-primary);
 }
 
-/* Floating canvas tools — bottom center */
+/* Floating canvas tools — bottom center, draggable */
 .canvas-floating-tools {
   position: absolute;
   bottom: 16px;
   left: 50%;
-  transform: translateX(-50%);
   z-index: 20;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 2px;
-  padding: 4px 8px;
+  padding: 6px 10px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-primary);
   border-radius: 12px;
   box-shadow: var(--shadow-md);
+  user-select: none;
+}
+
+.canvas-floating-tools.dragging {
+  box-shadow: var(--shadow-lg, 0 8px 30px rgba(0, 0, 0, 0.3));
+}
+
+.canvas-tool-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-primary);
+  margin: 0 4px;
+  flex-shrink: 0;
 }
 
 .canvas-header {
@@ -2152,6 +2188,28 @@ mark {
   color: var(--text-tertiary);
 }
 
+.search-clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+.search-clear-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.search-match-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding: 2px 0 0 4px;
+}
+
 .outline-body {
   flex: 1;
   overflow-y: auto;
@@ -2822,12 +2880,15 @@ mark {
   transform: translate(-50%, -50%);
   width: 90%;
   max-width: 480px;
+  max-height: 85vh;
   background: var(--bg-elevated);
   border: 1px solid var(--border-primary);
   border-radius: 16px;
   z-index: 9999;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   animation: settings-panel-in 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -2870,12 +2931,146 @@ mark {
   color: var(--text-primary);
 }
 
+/* Profile section */
+.settings-profile-section {
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.settings-profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 24px;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.settings-profile:hover {
+  background: var(--bg-secondary);
+}
+
+.settings-profile-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent-muted);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+.settings-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+}
+
+.settings-profile-name-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-profile-name-input {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  padding: 4px 8px;
+  outline: none;
+  width: 100%;
+}
+
+.settings-profile-name-input:focus {
+  border-color: var(--accent);
+}
+
+.settings-profile-plan {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.settings-profile-chevron {
+  color: var(--text-tertiary);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.settings-profile-chevron.open {
+  transform: rotate(90deg);
+}
+
+.settings-profile-menu {
+  padding: 4px 12px 12px;
+}
+
+.settings-profile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  text-align: left;
+}
+
+.settings-profile-menu-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.settings-profile-menu-item.danger {
+  color: var(--text-tertiary);
+}
+
+.settings-profile-menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+
+.settings-profile-menu-ext {
+  margin-left: auto;
+  opacity: 0.4;
+}
+
+.settings-profile-menu-divider {
+  height: 1px;
+  background: var(--border-secondary);
+  margin: 4px 12px;
+}
+
 .settings-content {
-  padding: 24px;
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .settings-section {
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .settings-label {
@@ -2892,10 +3087,45 @@ mark {
   margin: 0 0 16px 0;
 }
 
-.settings-divider {
-  height: 1px;
-  background: var(--border-primary);
-  margin: 24px 0;
+.settings-accordion {
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.settings-accordion:last-child {
+  border-bottom: none;
+}
+
+.settings-accordion-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 0;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.settings-accordion-trigger:hover {
+  color: var(--accent);
+}
+
+.settings-accordion-arrow {
+  color: var(--text-tertiary);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.settings-accordion-trigger.open .settings-accordion-arrow {
+  transform: rotate(90deg);
+}
+
+.settings-accordion-body {
+  padding: 0 0 16px 24px;
 }
 
 .theme-buttons {
@@ -3936,10 +4166,15 @@ mark {
   background: var(--accent-muted) !important;
 }
 
-/* X6 edge hover — thicker on hover, round caps, animated opacity */
+/* X6 edge — smooth path transitions for state-driven updates */
 .x6-edge path {
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: d 0.25s cubic-bezier(0.4, 0, 0.2, 1), stroke-width 0.15s ease, opacity 0.25s ease;
+}
+
+/* Disable path transitions during active drag for instant responsiveness */
+.x6-nodes-dragging .x6-edge path {
   transition: stroke-width 0.15s ease, opacity 0.25s ease;
 }
 

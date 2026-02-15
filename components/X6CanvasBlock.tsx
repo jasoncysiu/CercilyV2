@@ -201,7 +201,7 @@ export default function X6CanvasBlock({ node, graph }: X6CanvasBlockProps) {
           width: '100%',
           height: '100%',
           overflow: 'hidden',
-          borderRadius: '10px',
+          borderRadius: '4px',
           cursor: 'grab',
           position: 'relative',
           background: 'var(--bg-elevated)',
@@ -216,7 +216,7 @@ export default function X6CanvasBlock({ node, graph }: X6CanvasBlockProps) {
           style={{
             position: 'absolute',
             inset: 0,
-            borderRadius: '10px',
+            borderRadius: '4px',
             background: branchColor,
             opacity: 0.18,
             pointerEvents: 'none',
@@ -224,7 +224,7 @@ export default function X6CanvasBlock({ node, graph }: X6CanvasBlockProps) {
         />
 
         {/* Content layer */}
-        <div style={{ position: 'relative', zIndex: 1, padding: '12px 22px', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+        <div style={{ position: 'relative', zIndex: 1, padding: '12px 22px', height: '100%', display: 'flex', flexDirection: 'column', alignItems: block.text.length <= 50 ? 'center' : 'flex-start', justifyContent: 'center', textAlign: block.text.length <= 50 ? 'center' : 'left' }}>
           {/* Text content */}
           {!isCollapsed && !block.isEditing && (
             <div

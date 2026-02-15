@@ -2,12 +2,13 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Block, Connection, BlockColor } from '@/lib/types';
-import { Search, ChevronDown, ChevronRight, X, Maximize2, Filter, MousePointer2, LayoutList, Type, Edit3, GripVertical } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, X, Maximize2, Minimize2, Filter, MousePointer2, LayoutList, Type, Edit3, GripVertical } from 'lucide-react';
 
 interface OutlineViewProps {
   blocks: Block[];
   connections: Connection[];
   onSelectBlock: (id: string) => void;
+  onBlockClick?: (blockId: string, chatId?: string, messageId?: string, startOffset?: number, endOffset?: number) => void;
   onDeleteBlocks: (ids: string[]) => void;
   onClose: () => void;
 }
@@ -19,7 +20,7 @@ interface TreeNode {
   children: TreeNode[];
 }
 
-export default function OutlineView({ blocks, connections, onSelectBlock, onDeleteBlocks, onClose }: OutlineViewProps) {
+export default function OutlineView({ blocks, connections, onSelectBlock, onBlockClick, onDeleteBlocks, onClose }: OutlineViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [isEditMode, setIsEditMode] = useState(false);
@@ -114,6 +115,41 @@ export default function OutlineView({ blocks, connections, onSelectBlock, onDele
     return ids;
   }, [tree]);
 
+  // Compute which node IDs match the search (including their ancestors for visibility)
+  const { matchingIds, ancestorIds } = useMemo(() => {
+    const matching = new Set<string>();
+    const ancestors = new Set<string>();
+    if (!searchQuery) return { matchingIds: matching, ancestorIds: ancestors };
+    const q = searchQuery.toLowerCase();
+
+    // First pass: find all nodes whose text matches
+    const findMatches = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        if (node.block.text.toLowerCase().includes(q)) {
+          matching.add(node.id);
+        }
+        findMatches(node.children);
+      }
+    };
+    findMatches(tree);
+
+    // Second pass: mark ancestors of matching nodes so they stay visible and expanded
+    const markAncestors = (nodes: TreeNode[]): boolean => {
+      let hasMatchBelow = false;
+      for (const node of nodes) {
+        const childHasMatch = markAncestors(node.children);
+        if (childHasMatch || matching.has(node.id)) {
+          ancestors.add(node.id);
+          hasMatchBelow = true;
+        }
+      }
+      return hasMatchBelow;
+    };
+    markAncestors(tree);
+
+    return { matchingIds: matching, ancestorIds: ancestors };
+  }, [searchQuery, tree]);
+
   const areAllExpanded = expandedNodes.size === allExpandableIds.size && allExpandableIds.size > 0;
 
   const toggleAll = () => {
@@ -156,20 +192,33 @@ export default function OutlineView({ blocks, connections, onSelectBlock, onDele
   };
 
   const renderNode = (node: TreeNode, depth: number = 0) => {
-    const isExpanded = expandedNodes.has(node.id);
     const isSelected = selectedTickIds.has(node.id);
     const hasChildren = node.children.length > 0;
 
-    const isHidden = searchQuery && !node.block.text.toLowerCase().includes(searchQuery.toLowerCase()) && 
-                    !node.children.some(child => child.block.text.toLowerCase().includes(searchQuery.toLowerCase()));
+    // When searching, hide nodes that neither match nor are ancestors of matches
+    if (searchQuery && !matchingIds.has(node.id) && !ancestorIds.has(node.id)) return null;
 
-    if (isHidden && searchQuery) return null;
+    // Auto-expand ancestor nodes during search; use manual expand state otherwise
+    const isExpanded = searchQuery ? ancestorIds.has(node.id) : expandedNodes.has(node.id);
 
     return (
       <div key={node.id} className="outline-node-wrapper">
         <div 
           className={`outline-node depth-${depth} ${hasChildren ? 'has-children' : ''} ${isSelected ? 'selected' : ''}`}
-          onClick={() => isEditMode ? toggleTick(node.id, { stopPropagation: () => {} } as any) : onSelectBlock(node.id)}
+          onClick={() => {
+            if (isEditMode) {
+              toggleTick(node.id, { stopPropagation: () => {} } as any);
+            } else {
+              onSelectBlock(node.id);
+              // Focus the canvas on this node
+              window.dispatchEvent(new CustomEvent('x6-focus-block', { detail: { blockId: node.id } }));
+              // Navigate to source text in chat if available
+              const b = node.block;
+              if (b.messageId && onBlockClick) {
+                onBlockClick(b.id, b.chatId, b.messageId, b.startOffset, b.endOffset);
+              }
+            }
+          }}
         >
           {isEditMode && (
             <div className="node-checkbox" onClick={(e) => toggleTick(node.id, e)}>
@@ -213,7 +262,7 @@ export default function OutlineView({ blocks, connections, onSelectBlock, onDele
       <div className="outline-header" onMouseDown={handleMouseDown}>
         <div className="header-actions">
           <button className="header-btn" onClick={toggleAll} title={areAllExpanded ? "Collapse All" : "Expand All"}>
-            {areAllExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            {areAllExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
           <div style={{ width: '8px' }} />
           <button className="header-btn" onClick={onClose}><X size={16} /></button>
@@ -221,15 +270,24 @@ export default function OutlineView({ blocks, connections, onSelectBlock, onDele
         <div className="search-container">
           <div className="search-input-wrapper">
             <Search size={16} className="search-icon" />
-            <input 
-              type="text" 
-              placeholder="Search outline..." 
+            <input
+              type="text"
+              placeholder="Search outline..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onMouseDown={(e) => e.stopPropagation()} // Prevent drag start when clicking input
             />
-            <Filter size={16} className="filter-icon" />
+            {searchQuery ? (
+              <button className="search-clear-btn" onClick={() => setSearchQuery('')} onMouseDown={(e) => e.stopPropagation()}>
+                <X size={14} />
+              </button>
+            ) : (
+              <Filter size={16} className="filter-icon" />
+            )}
           </div>
+          {searchQuery && (
+            <div className="search-match-count">{matchingIds.size} match{matchingIds.size !== 1 ? 'es' : ''}</div>
+          )}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Monitor, Sun, Moon, Key, Eye, EyeOff, Check, Sparkles, RotateCcw, Type } from 'lucide-react';
+import { X, Monitor, Sun, Moon, Key, Eye, EyeOff, Check, Sparkles, RotateCcw, ChevronRight, ChevronDown, Trash2, MessageSquareText, ExternalLink } from 'lucide-react';
 import ModelSelector from './ModelSelector';
 
 type Theme = 'system' | 'light' | 'dark';
@@ -51,6 +51,43 @@ export default function SettingsPanel({ isOpen, onClose, availableModels, onSele
   const [promptSaved, setPromptSaved] = useState(false);
   const [canvasFont, setCanvasFont] = useState<CanvasFont>('basic');
   const [textSize, setTextSize] = useState<TextSize>('mid');
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['theme']));
+  const [displayName, setDisplayName] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  const toggleSection = (key: string) => {
+    setOpenSections(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  // Load display name from localStorage on mount
+  useEffect(() => {
+    const savedName = localStorage.getItem('cercily-display-name');
+    if (savedName) setDisplayName(savedName);
+  }, []);
+
+  const handleSaveName = () => {
+    const trimmed = nameInput.trim();
+    if (trimmed) {
+      setDisplayName(trimmed);
+      localStorage.setItem('cercily-display-name', trimmed);
+      window.dispatchEvent(new Event('cercily-name-change'));
+    }
+    setEditingName(false);
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
 
   // Load theme from localStorage on mount
   useEffect(() => {
@@ -156,6 +193,22 @@ export default function SettingsPanel({ isOpen, onClose, availableModels, onSele
     setPromptSaved(false);
   };
 
+  const handleClearHistory = () => {
+    if (confirm('Clear all local data? This will remove cached projects, chats, decisions, and preferences. Data stored in Notion will not be affected.')) {
+      localStorage.removeItem('cercily-cache-projects');
+      localStorage.removeItem('cercily-cache-chats');
+      localStorage.removeItem('cercily-cache-timestamp');
+      localStorage.removeItem('cercily-synthesized-decisions');
+      localStorage.removeItem('cercily-display-name');
+      localStorage.removeItem('cercily-theme');
+      localStorage.removeItem('cercily-canvas-font');
+      localStorage.removeItem('cercily-text-size');
+      localStorage.removeItem('cercily-decision-prompt');
+      localStorage.removeItem('cercily-gemini-api-key');
+      window.location.reload();
+    }
+  };
+
   const applyTheme = (newTheme: Theme) => {
     const root = document.documentElement;
     root.classList.remove('theme-light', 'theme-dark');
@@ -191,179 +244,277 @@ export default function SettingsPanel({ isOpen, onClose, availableModels, onSele
           </button>
         </div>
 
+        {/* Profile section */}
+        <div className={`settings-profile-section ${showProfileMenu ? 'expanded' : ''}`}>
+          <button
+            className="settings-profile"
+            onClick={() => setShowProfileMenu(prev => !prev)}
+          >
+            <div className="settings-profile-avatar">
+              {getInitials(displayName)}
+            </div>
+            <div className="settings-profile-info">
+              {editingName ? (
+                <input
+                  className="settings-profile-name-input"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { handleSaveName(); e.stopPropagation(); }
+                    if (e.key === 'Escape') { setEditingName(false); e.stopPropagation(); }
+                  }}
+                  onBlur={handleSaveName}
+                  onClick={(e) => e.stopPropagation()}
+                  autoFocus
+                  placeholder="Your name"
+                />
+              ) : (
+                <>
+                  <span className="settings-profile-name-text">
+                    {displayName || 'Set your name'}
+                  </span>
+                  <span className="settings-profile-plan">Local workspace</span>
+                </>
+              )}
+            </div>
+            <span className={`settings-profile-chevron ${showProfileMenu ? 'open' : ''}`}>
+              <ChevronRight size={16} />
+            </span>
+          </button>
+          {showProfileMenu && (
+            <div className="settings-profile-menu">
+              <button
+                className="settings-profile-menu-item"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setNameInput(displayName);
+                  setEditingName(true);
+                  setShowProfileMenu(false);
+                }}
+              >
+                Edit name
+              </button>
+              <button
+                className="settings-profile-menu-item"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open('https://github.com/anthropics/claude-code/issues', '_blank');
+                }}
+              >
+                <MessageSquareText size={14} />
+                Send Feedback
+                <ExternalLink size={12} className="settings-profile-menu-ext" />
+              </button>
+              <div className="settings-profile-menu-divider" />
+              <button
+                className="settings-profile-menu-item danger"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClearHistory();
+                }}
+              >
+                <Trash2 size={14} />
+                Clear Local Data
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="settings-content">
-          {/* Theme Section */}
-          <div className="settings-section">
-            <label className="settings-label">Appearance</label>
-            <p className="settings-hint">Choose your preferred theme</p>
-            <div className="theme-buttons">
-              <button
-                className={`theme-btn ${theme === 'system' ? 'active' : ''}`}
-                onClick={() => handleThemeChange('system')}
-              >
-                <Monitor size={18} />
-                <span>System</span>
-              </button>
-              <button
-                className={`theme-btn ${theme === 'light' ? 'active' : ''}`}
-                onClick={() => handleThemeChange('light')}
-              >
-                <Sun size={18} />
-                <span>Light</span>
-              </button>
-              <button
-                className={`theme-btn ${theme === 'dark' ? 'active' : ''}`}
-                onClick={() => handleThemeChange('dark')}
-              >
-                <Moon size={18} />
-                <span>Dark</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="settings-divider" />
-
-          {/* Canvas Font Section */}
-          <div className="settings-section">
-            <label className="settings-label">
-              <Type size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
-              Canvas Font
-            </label>
-            <p className="settings-hint">Choose the typeface for canvas nodes</p>
-            <div className="font-select-wrapper">
-              <select
-                className="font-select"
-                value={canvasFont}
-                onChange={(e) => handleFontChange(e.target.value as CanvasFont)}
-              >
-                {FONT_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="font-preview" style={{ fontFamily: FONT_OPTIONS.find(f => f.value === canvasFont)?.family }}>
-              The quick brown fox jumps over the lazy dog
-            </div>
-          </div>
-
-          <div className="settings-divider" />
-
-          {/* Text Size Section */}
-          <div className="settings-section">
-            <label className="settings-label">Text Size</label>
-            <p className="settings-hint">Choose the text size for both panes</p>
-            <div className="theme-buttons">
-              {TEXT_SIZE_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  className={`theme-btn ${textSize === opt.value ? 'active' : ''}`}
-                  onClick={() => handleTextSizeChange(opt.value)}
-                >
-                  <span style={{ fontSize: opt.size }}>{opt.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="settings-divider" />
-
-          {/* API Keys Section */}
-          <div className="settings-section">
-            <label className="settings-label">
-              <Key size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
-              API Keys
-            </label>
-            <p className="settings-hint">Add your API keys to use AI models</p>
-
-            <div className="api-key-group">
-              <label className="api-key-label">Gemini API Key</label>
-              <div className="api-key-input-row">
-                <div className="api-key-input-wrapper">
-                  <input
-                    type={showApiKey ? 'text' : 'password'}
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                    placeholder="Enter your Gemini API key"
-                    className="api-key-input"
-                  />
+          {/* Theme */}
+          <div className="settings-accordion">
+            <button className={`settings-accordion-trigger ${openSections.has('theme') ? 'open' : ''}`} onClick={() => toggleSection('theme')}>
+              <ChevronRight size={16} className="settings-accordion-arrow" />
+              <span>Theme</span>
+            </button>
+            {openSections.has('theme') && (
+              <div className="settings-accordion-body">
+                <p className="settings-hint">Choose your preferred theme</p>
+                <div className="theme-buttons">
                   <button
-                    className="api-key-toggle"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    type="button"
+                    className={`theme-btn ${theme === 'system' ? 'active' : ''}`}
+                    onClick={() => handleThemeChange('system')}
                   >
-                    {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    <Monitor size={18} />
+                    <span>System</span>
+                  </button>
+                  <button
+                    className={`theme-btn ${theme === 'light' ? 'active' : ''}`}
+                    onClick={() => handleThemeChange('light')}
+                  >
+                    <Sun size={18} />
+                    <span>Light</span>
+                  </button>
+                  <button
+                    className={`theme-btn ${theme === 'dark' ? 'active' : ''}`}
+                    onClick={() => handleThemeChange('dark')}
+                  >
+                    <Moon size={18} />
+                    <span>Dark</span>
                   </button>
                 </div>
-                <button
-                  className={`api-key-save ${apiKeySaved ? 'saved' : ''}`}
-                  onClick={handleSaveApiKey}
-                  disabled={!geminiApiKey.trim()}
-                >
-                  {apiKeySaved ? <Check size={16} /> : 'Save'}
-                </button>
               </div>
-              {geminiApiKey && (
-                <button className="api-key-clear" onClick={handleClearApiKey}>
-                  Clear API Key
-                </button>
-              )}
-              <p className="api-key-hint">
-                Get your API key from{' '}
-                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">
-                  Google AI Studio
-                </a>
-              </p>
-            </div>
+            )}
           </div>
 
-          <div className="settings-divider" />
-
-          {/* Model Selector */}
-          <div className="settings-section">
-            <label className="settings-label">AI Models</label>
-            <p className="settings-hint">Select which models to use</p>
-            <ModelSelector
-              initialAvailableModels={availableModels}
-              onSelectAvailableModels={onSelectAvailableModels}
-            />
+          {/* Canvas Font */}
+          <div className="settings-accordion">
+            <button className={`settings-accordion-trigger ${openSections.has('font') ? 'open' : ''}`} onClick={() => toggleSection('font')}>
+              <ChevronRight size={16} className="settings-accordion-arrow" />
+              <span>Canvas Font</span>
+            </button>
+            {openSections.has('font') && (
+              <div className="settings-accordion-body">
+                <p className="settings-hint">Choose the typeface for canvas nodes</p>
+                <div className="font-select-wrapper">
+                  <select
+                    className="font-select"
+                    value={canvasFont}
+                    onChange={(e) => handleFontChange(e.target.value as CanvasFont)}
+                  >
+                    {FONT_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="font-preview" style={{ fontFamily: FONT_OPTIONS.find(f => f.value === canvasFont)?.family }}>
+                  The quick brown fox jumps over the lazy dog
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="settings-divider" />
+          {/* Text Size */}
+          <div className="settings-accordion">
+            <button className={`settings-accordion-trigger ${openSections.has('textSize') ? 'open' : ''}`} onClick={() => toggleSection('textSize')}>
+              <ChevronRight size={16} className="settings-accordion-arrow" />
+              <span>Text Size</span>
+            </button>
+            {openSections.has('textSize') && (
+              <div className="settings-accordion-body">
+                <p className="settings-hint">Choose the text size for both panes</p>
+                <div className="theme-buttons">
+                  {TEXT_SIZE_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      className={`theme-btn ${textSize === opt.value ? 'active' : ''}`}
+                      onClick={() => handleTextSizeChange(opt.value)}
+                    >
+                      <span style={{ fontSize: opt.size }}>{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
-          {/* Custom Decision Prompt */}
-          <div className="settings-section">
-            <label className="settings-label">
-              <Sparkles size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
-              Decision Prompt
-            </label>
-            <p className="settings-hint">
-              Customize how the AI analyzes your decisions. Leave blank to use the default Fear Setting framework.
-            </p>
-            <textarea
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              placeholder={DEFAULT_DECISION_PROMPT}
-              className="settings-prompt-textarea"
-              rows={6}
-            />
-            <div className="settings-prompt-actions">
-              <button
-                className="settings-prompt-reset"
-                onClick={handleResetPrompt}
-                title="Reset to default"
-              >
-                <RotateCcw size={14} />
-                <span>Reset</span>
-              </button>
-              <button
-                className={`api-key-save ${promptSaved ? 'saved' : ''}`}
-                onClick={handleSavePrompt}
-              >
-                {promptSaved ? <Check size={16} /> : 'Save'}
-              </button>
-            </div>
+          {/* API Keys */}
+          <div className="settings-accordion">
+            <button className={`settings-accordion-trigger ${openSections.has('apiKeys') ? 'open' : ''}`} onClick={() => toggleSection('apiKeys')}>
+              <ChevronRight size={16} className="settings-accordion-arrow" />
+              <span>API Keys</span>
+            </button>
+            {openSections.has('apiKeys') && (
+              <div className="settings-accordion-body">
+                <p className="settings-hint">Add your API keys to use AI models</p>
+                <div className="api-key-group">
+                  <label className="api-key-label">Gemini API Key</label>
+                  <div className="api-key-input-row">
+                    <div className="api-key-input-wrapper">
+                      <input
+                        type={showApiKey ? 'text' : 'password'}
+                        value={geminiApiKey}
+                        onChange={(e) => setGeminiApiKey(e.target.value)}
+                        placeholder="Enter your Gemini API key"
+                        className="api-key-input"
+                      />
+                      <button
+                        className="api-key-toggle"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        type="button"
+                      >
+                        {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                    <button
+                      className={`api-key-save ${apiKeySaved ? 'saved' : ''}`}
+                      onClick={handleSaveApiKey}
+                      disabled={!geminiApiKey.trim()}
+                    >
+                      {apiKeySaved ? <Check size={16} /> : 'Save'}
+                    </button>
+                  </div>
+                  {geminiApiKey && (
+                    <button className="api-key-clear" onClick={handleClearApiKey}>
+                      Clear API Key
+                    </button>
+                  )}
+                  <p className="api-key-hint">
+                    Get your API key from{' '}
+                    <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">
+                      Google AI Studio
+                    </a>
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* AI Models */}
+          <div className="settings-accordion">
+            <button className={`settings-accordion-trigger ${openSections.has('models') ? 'open' : ''}`} onClick={() => toggleSection('models')}>
+              <ChevronRight size={16} className="settings-accordion-arrow" />
+              <span>AI Models</span>
+            </button>
+            {openSections.has('models') && (
+              <div className="settings-accordion-body">
+                <p className="settings-hint">Select which models to use</p>
+                <ModelSelector
+                  initialAvailableModels={availableModels}
+                  onSelectAvailableModels={onSelectAvailableModels}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Decision Prompt */}
+          <div className="settings-accordion">
+            <button className={`settings-accordion-trigger ${openSections.has('prompt') ? 'open' : ''}`} onClick={() => toggleSection('prompt')}>
+              <ChevronRight size={16} className="settings-accordion-arrow" />
+              <span>Decision Prompt</span>
+            </button>
+            {openSections.has('prompt') && (
+              <div className="settings-accordion-body">
+                <p className="settings-hint">
+                  Customize how the AI analyzes your decisions. Leave blank to use the default Fear Setting framework.
+                </p>
+                <textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder={DEFAULT_DECISION_PROMPT}
+                  className="settings-prompt-textarea"
+                  rows={6}
+                />
+                <div className="settings-prompt-actions">
+                  <button
+                    className="settings-prompt-reset"
+                    onClick={handleResetPrompt}
+                    title="Reset to default"
+                  >
+                    <RotateCcw size={14} />
+                    <span>Reset</span>
+                  </button>
+                  <button
+                    className={`api-key-save ${promptSaved ? 'saved' : ''}`}
+                    onClick={handleSavePrompt}
+                  >
+                    {promptSaved ? <Check size={16} /> : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

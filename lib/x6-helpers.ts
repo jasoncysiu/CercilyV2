@@ -1,4 +1,93 @@
+import { Graph, Path } from '@antv/x6';
 import { Block, Connection, BlockColor, ConnectionPosition } from './types';
+
+// ============================================
+// ADAPTIVE BEZIER CONNECTOR
+// ============================================
+// Custom connector that produces natural, flowing curves between nodes.
+// Control point offsets scale with distance — short distances get subtle
+// curves, long distances get wider arcs. The exit/entry angle follows
+// the port direction for a natural "flow" feel.
+
+interface PointLike { x: number; y: number }
+
+// Direction vectors for each port position (which way the curve exits/enters)
+const PORT_DIRECTION: Record<string, { dx: number; dy: number }> = {
+  top:    { dx: 0,  dy: -1 },
+  bottom: { dx: 0,  dy: 1  },
+  left:   { dx: -1, dy: 0  },
+  right:  { dx: 1,  dy: 0  },
+};
+
+function adaptiveBezierConnector(
+  sourcePoint: PointLike,
+  targetPoint: PointLike,
+  routePoints: PointLike[],
+  options: { raw?: boolean },
+  edgeView: any,
+) {
+  const path = new Path();
+  path.appendSegment(Path.createSegment('M', sourcePoint));
+
+  if (routePoints && routePoints.length > 0) {
+    // If route points exist, draw through them with simple line segments
+    for (const pt of routePoints) {
+      path.appendSegment(Path.createSegment('L', pt));
+    }
+    path.appendSegment(Path.createSegment('L', targetPoint));
+    return options.raw ? path : path.serialize();
+  }
+
+  // Get port directions from the edge's connection data
+  let fromDir = PORT_DIRECTION['bottom'];
+  let toDir = PORT_DIRECTION['top'];
+
+  try {
+    const edge = edgeView?.cell;
+    const connData = edge?.getData?.()?.connection;
+    if (connData) {
+      fromDir = PORT_DIRECTION[connData.fromPos] || fromDir;
+      toDir = PORT_DIRECTION[connData.toPos] || toDir;
+    } else {
+      // Fallback: infer direction from source/target port IDs
+      const sourcePort = edge?.getSource?.()?.port;
+      const targetPort = edge?.getTarget?.()?.port;
+      if (sourcePort && PORT_DIRECTION[sourcePort]) fromDir = PORT_DIRECTION[sourcePort];
+      if (targetPort && PORT_DIRECTION[targetPort]) toDir = PORT_DIRECTION[targetPort];
+    }
+  } catch (_) {
+    // Use defaults if edge data unavailable
+  }
+
+  const dx = targetPoint.x - sourcePoint.x;
+  const dy = targetPoint.y - sourcePoint.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  // Scale control point offset with distance:
+  // - Minimum 40px ensures curves are visible at close range
+  // - Scales at 40% of distance for natural feel
+  // - Maximum 250px prevents absurdly wide arcs at extreme distances
+  const offset = Math.min(250, Math.max(40, distance * 0.4));
+
+  const cp1x = sourcePoint.x + fromDir.dx * offset;
+  const cp1y = sourcePoint.y + fromDir.dy * offset;
+  const cp2x = targetPoint.x + toDir.dx * offset;
+  const cp2y = targetPoint.y + toDir.dy * offset;
+
+  path.appendSegment(
+    Path.createSegment('C', cp1x, cp1y, cp2x, cp2y, targetPoint.x, targetPoint.y)
+  );
+
+  return options.raw ? path : path.serialize();
+}
+
+// Register the custom connector globally
+let connectorRegistered = false;
+export function ensureConnectorRegistered() {
+  if (connectorRegistered) return;
+  Graph.registerConnector('adaptive-bezier', adaptiveBezierConnector as any, true);
+  connectorRegistered = true;
+}
 
 // Port group configuration for X6 nodes (invisible — used only for edge routing)
 const hiddenPortAttrs = {
@@ -114,13 +203,13 @@ export function connectionEdgeId(conn: Connection): string {
   return `edge-${conn.from}-${conn.fromPos}-${conn.to}-${conn.toPos}`;
 }
 
-// Convert a Connection to X6 edge metadata (MMW-style thick Bezier curves)
+// Convert a Connection to X6 edge metadata (adaptive bezier curves)
 export function connectionToX6Edge(conn: Connection) {
   return {
     id: connectionEdgeId(conn),
     source: { cell: conn.from, port: conn.fromPos },
     target: { cell: conn.to, port: conn.toPos },
-    connector: { name: 'smooth' },
+    connector: { name: 'adaptive-bezier' },
     attrs: {
       line: {
         stroke: getEdgeStrokeColor(conn.color),

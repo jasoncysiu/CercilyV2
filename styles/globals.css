@@ -1429,6 +1429,32 @@ h1 {
   box-shadow: var(--shadow-lg, 0 8px 30px rgba(0, 0, 0, 0.3));
 }
 
+/* Vertical toolbar when snapped to left/right edge */
+.canvas-floating-tools.vertical {
+  flex-direction: column;
+  bottom: auto;
+  left: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 10px 6px;
+}
+
+.canvas-floating-tools.edge-left {
+  left: 12px;
+  right: auto;
+}
+
+.canvas-floating-tools.edge-right {
+  right: 12px;
+  left: auto;
+}
+
+.canvas-floating-tools.vertical .canvas-tool-divider {
+  width: 20px;
+  height: 1px;
+  margin: 4px 0;
+}
+
 .canvas-tool-divider {
   width: 1px;
   height: 20px;

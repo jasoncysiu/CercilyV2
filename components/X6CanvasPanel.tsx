@@ -156,16 +156,31 @@ export default function X6CanvasPanel({
   // Floating toolbar drag state
   const [toolbarPos, setToolbarPos] = useState({ x: 0, y: 0 });
   const [toolbarDragging, setToolbarDragging] = useState(false);
+  const [toolbarEdge, setToolbarEdge] = useState<'left' | 'right' | null>(null);
   const toolbarDragStart = useRef({ x: 0, y: 0 });
   const toolbarInitialPos = useRef({ x: 0, y: 0 });
+  const toolbarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!toolbarDragging) return;
     const onMove = (e: MouseEvent) => {
-      setToolbarPos({
-        x: toolbarInitialPos.current.x + (e.clientX - toolbarDragStart.current.x),
-        y: toolbarInitialPos.current.y + (e.clientY - toolbarDragStart.current.y),
-      });
+      const newX = toolbarInitialPos.current.x + (e.clientX - toolbarDragStart.current.x);
+      const newY = toolbarInitialPos.current.y + (e.clientY - toolbarDragStart.current.y);
+      setToolbarPos({ x: newX, y: newY });
+
+      // Detect edge proximity: check if mouse is near left or right edge of canvas
+      const panel = containerRef.current?.parentElement;
+      if (panel) {
+        const rect = panel.getBoundingClientRect();
+        const edgeThreshold = 80;
+        if (e.clientX < rect.left + edgeThreshold) {
+          setToolbarEdge('left');
+        } else if (e.clientX > rect.right - edgeThreshold) {
+          setToolbarEdge('right');
+        } else {
+          setToolbarEdge(null);
+        }
+      }
     };
     const onUp = () => setToolbarDragging(false);
     document.addEventListener('mousemove', onMove);
@@ -181,8 +196,25 @@ export default function X6CanvasPanel({
     if ((e.target as HTMLElement).closest('button')) return;
     setToolbarDragging(true);
     toolbarDragStart.current = { x: e.clientX, y: e.clientY };
-    toolbarInitialPos.current = { x: toolbarPos.x, y: toolbarPos.y };
-  }, [toolbarPos]);
+
+    // If currently at an edge, convert edge CSS position into pixel offset so drag feels continuous
+    if (toolbarEdge && toolbarRef.current) {
+      const tb = toolbarRef.current.getBoundingClientRect();
+      const panel = containerRef.current?.parentElement;
+      if (panel) {
+        const pr = panel.getBoundingClientRect();
+        // Convert current toolbar center back to the offset system (centered at bottom-center)
+        const centerX = pr.left + pr.width / 2;
+        const offsetX = (tb.left + tb.width / 2) - centerX;
+        const offsetY = tb.top - (pr.bottom - 16 - tb.height);
+        toolbarInitialPos.current = { x: offsetX, y: offsetY };
+        setToolbarPos({ x: offsetX, y: offsetY });
+      }
+      setToolbarEdge(null);
+    } else {
+      toolbarInitialPos.current = { x: toolbarPos.x, y: toolbarPos.y };
+    }
+  }, [toolbarPos, toolbarEdge]);
 
   // Ensure the shape is registered before graph init
   useEffect(() => {
@@ -628,8 +660,8 @@ export default function X6CanvasPanel({
       graph.centerPoint(graphX, graphY);
     };
 
-    const onDown = (e: MouseEvent) => { isDragging = true; navigate(e); };
-    const onMove = (e: MouseEvent) => { if (isDragging) navigate(e); };
+    const onDown = (e: MouseEvent) => { e.stopPropagation(); e.preventDefault(); isDragging = true; navigate(e); };
+    const onMove = (e: MouseEvent) => { if (isDragging) { e.preventDefault(); navigate(e); } };
     const onUp = () => { isDragging = false; };
 
     canvas.addEventListener('mousedown', onDown);
@@ -655,10 +687,13 @@ export default function X6CanvasPanel({
 
       {/* Floating canvas tools — bottom center, draggable */}
       <div
-        className={`canvas-floating-tools ${toolbarDragging ? 'dragging' : ''}`}
+        ref={toolbarRef}
+        className={`canvas-floating-tools ${toolbarDragging ? 'dragging' : ''} ${toolbarEdge ? 'vertical' : ''} ${toolbarEdge === 'left' ? 'edge-left' : ''} ${toolbarEdge === 'right' ? 'edge-right' : ''}`}
         style={{
-          transform: `translate(calc(-50% + ${toolbarPos.x}px), ${toolbarPos.y}px)`,
-          transition: toolbarDragging ? 'none' : 'transform 0.1s ease-out',
+          transform: toolbarEdge
+            ? undefined
+            : `translate(calc(-50% + ${toolbarPos.x}px), ${toolbarPos.y}px)`,
+          transition: toolbarDragging ? 'none' : 'transform 0.2s ease-out, top 0.2s ease-out, left 0.2s ease-out, right 0.2s ease-out, bottom 0.2s ease-out',
           cursor: toolbarDragging ? 'grabbing' : 'grab',
         }}
         onMouseDown={handleToolbarMouseDown}>

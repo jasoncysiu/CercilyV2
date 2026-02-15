@@ -60,7 +60,7 @@ export function useX6Graph(options: UseX6GraphOptions) {
       grid: { visible: false },
       panning: {
         enabled: true,
-        eventTypes: ['leftMouseDown'],
+        eventTypes: ['leftMouseDown', 'rightMouseDown'],
       },
       mousewheel: {
         enabled: true,
@@ -509,12 +509,12 @@ export function useX6Graph(options: UseX6GraphOptions) {
     const currentZoom = graph.zoom();
     if (Math.abs(currentZoom - options.zoom) > 0.01) {
       isSyncingRef.current = true;
-      graph.zoom(options.zoom / currentZoom);
+      graph.zoom(options.zoom / currentZoom - 1);
       isSyncingRef.current = false;
     }
   }, [options.zoom]);
 
-  // Panning is always enabled (via rightMouseDown configured in graph init)
+  // Panning is always enabled (via leftMouseDown + rightMouseDown configured in graph init)
 
   // Helper: get graph position from screen coordinates
   const screenToGraphPosition = useCallback((screenX: number, screenY: number) => {

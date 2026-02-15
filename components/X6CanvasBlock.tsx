@@ -224,7 +224,7 @@ export default function X6CanvasBlock({ node, graph }: X6CanvasBlockProps) {
         />
 
         {/* Content layer */}
-        <div style={{ position: 'relative', zIndex: 1, padding: '12px 22px', height: '100%', display: 'flex', flexDirection: 'column', alignItems: block.text.length <= 50 ? 'center' : 'flex-start', justifyContent: 'center', textAlign: block.text.length <= 50 ? 'center' : 'left' }}>
+        <div style={{ position: 'relative', zIndex: 1, padding: '6px 22px', height: '100%', display: 'flex', flexDirection: 'column', alignItems: block.text.length <= 50 ? 'center' : 'flex-start', justifyContent: 'center', textAlign: block.text.length <= 50 ? 'center' : 'left' }}>
           {/* Text content */}
           {!isCollapsed && !block.isEditing && (
             <div

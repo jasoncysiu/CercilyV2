@@ -139,14 +139,14 @@ function getCanvasFontSize(): number {
 // Calculate dynamic node size based on text content
 export function calculateNodeSize(text: string, isCollapsed: boolean): { width: number; height: number } {
   if (isCollapsed) {
-    return { width: 160, height: 50 };
+    return { width: 160, height: 36 };
   }
 
   const fontSize = getCanvasFontSize();
   // Average character width is roughly 0.55× the font size for proportional fonts
   const avgCharWidth = fontSize * 0.55;
   const horizontalPadding = 44; // 22px each side
-  const verticalPadding = 24 + fontSize; // 12px each side + extra buffer for line descenders
+  const verticalPadding = 14 + Math.round(fontSize * 0.6); // Tighter vertical fit
 
   const charCount = text.length;
   const lineBreaks = (text.match(/\n/g) || []).length;
@@ -175,7 +175,7 @@ export function calculateNodeSize(text: string, isCollapsed: boolean): { width: 
   // Height: use CSS line-height (1.5× font size) per line + vertical padding
   const lineHeight = fontSize * 1.5;
   let height = verticalPadding + wrappedLines * lineHeight;
-  height = Math.max(60, Math.min(500, height));
+  height = Math.max(36, Math.min(500, height));
 
   return { width, height };
 }

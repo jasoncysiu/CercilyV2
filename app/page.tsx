@@ -2291,7 +2291,7 @@ Confidence: ${decisionData.confidence}/10`;
               onDeleteConnection={deleteConnection}
               onClearCanvas={clearCanvas}
               onZoomIn={() => setZoom(z => Math.min(2, z + 0.1))}
-              onZoomOut={() => setZoom(z => Math.max(0.5, z - 0.1))}
+              onZoomOut={() => setZoom(z => Math.max(0.1, z - 0.1))}
               onExport={exportJson}
               onToggleCollapse={toggleCollapse}
               onCollapseAll={collapseAll}
